@@ -179,6 +179,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .top-meta{font-size:11px;color:var(--t2);margin-top:2px}
 .top-amt{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap}
 
+/* ── MODAL FIJOS ── */
+.fijos-cfg-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
+.fijos-cfg-row:last-child{border-bottom:none}
+.fijos-cfg-nombre{flex:1;font-size:13px;font-weight:600;color:var(--text)}
+.fijos-cfg-meta{font-size:11px;color:var(--t3)}
+.fijos-cfg-del{background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;padding:2px 6px;line-height:1}
+.fijos-cfg-del:hover{color:var(--red)}
+.fijos-add-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.fijos-add-form input,.fijos-add-form select{height:38px;border:1px solid var(--border);border-radius:7px;padding:0 10px;font-size:13px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none}
+.fijos-add-form input:focus,.fijos-add-form select:focus{border-color:var(--green)}
+.fijos-add-btn{grid-column:1/-1;height:40px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px}
+.cfg-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;padding:0;margin-bottom:12px;text-decoration:underline;text-underline-offset:3px}
+
 /* ── SETTINGS CIERRE ── */
 .cierre-bar{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px}
 .cierre-label{flex:1;font-size:13px;color:var(--t2);font-weight:500}
@@ -455,6 +468,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       <div class="prog-track" style="margin-bottom:0"><div class="prog-fill" id="bar-l" style="width:0%;background:var(--yellow)"></div></div>
     </div>
     <div class="section-label">Compromisos del mes</div>
+    <button class="cfg-link" onclick="openFijosCfg()">⚙️ Configurar mis fijos</button>
     <div class="info-note" id="fijos-note"></div>
     <div class="card" id="fijos-list"></div>
     <div class="section-label">Insights del mes</div>
@@ -532,6 +546,32 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
 <!-- FAB -->
 <button class="fab" id="fab-btn" style="display:none" onclick="openModal()" title="Nuevo movimiento">+</button>
+
+<!-- MODAL FIJOS CONFIG -->
+<div class="modal-overlay" id="fijos-cfg-overlay" onclick="closeFijosCfgOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Mis compromisos fijos</div>
+      <button class="modal-close" onclick="closeFijosCfg()">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.5">
+      Estos son los gastos que la app reconoce automáticamente como fijos. Tienen que coincidir con la <strong>Categoría</strong> y <strong>Subcategoría</strong> que usás al cargar gastos.
+    </div>
+    <div id="fijos-cfg-lista"></div>
+    <div style="margin-top:16px;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Agregar nuevo fijo</div>
+    <div class="fijos-add-form">
+      <input type="text" id="fijo-nombre" placeholder="Nombre (ej: Gym)">
+      <select id="fijo-cat">
+        <option value="">Categoría...</option>
+        <option>Consumo</option><option>Personal</option><option>Servicios</option>
+        <option>Deuda</option><option>Transporte</option><option>Salud</option><option>Otros</option>
+      </select>
+      <input type="text" id="fijo-sub" placeholder="Subcategoría exacta" style="grid-column:1/-1">
+      <button class="fijos-add-btn" onclick="agregarFijo()">+ Agregar fijo</button>
+    </div>
+    <div class="auth-error" id="fijos-cfg-error"></div>
+  </div>
+</div>
 
 <!-- MODAL NUEVO MOVIMIENTO -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalOnOverlay(event)">
@@ -662,19 +702,8 @@ function initCierreUI(){
   document.getElementById("cierre-input").value = dia;
 }
 
-const FIJOS_DEF = [
-  ["TC Visa",      "Deuda",     "Visa - Santander"],
-  ["TC Amex",      "Deuda",     "Amex - Santander"],
-  ["PH Ciudad",    "Deuda",     "PH - Ciudad"],
-  ["PP Santander", "Deuda",     "PP - Santander"],
-  ["PP ANSES",     "Deuda",     "PP - Anses"],
-  ["Descubierto",  "Deuda",     "Descubierto - Santander"],
-  ["EDESUR",       "Servicios", "EDESUR"],
-  ["Expensas",     "Servicios", "Expensas"],
-  ["GYM",          "Salud",     "GYM"],
-  ["Psicóloga",    "Salud",     "Psicóloga"],
-  ["ABL",          "Servicios", "ABL"],
-];
+// FIJOS_DEF se carga dinámicamente desde Supabase por usuario
+let FIJOS_DEF = []; // [nombre, categoria, subcategoria]
 const COLORS = ["#16A34A","#F59E0B","#DC2626","#6B7280","#0F766E","#7C3AED","#1D4ED8","#9A3412","#374151","#059669"];
 const MNAMES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -747,11 +776,64 @@ function showAuthScreen(){
   setTimeout(()=>loadEl.style.display="none",260);
 }
 
+// ── FIJOS CONFIG ────────────────────────────────────────────────
+async function cargarFijos(){
+  const {data}=await sb.from("fijos_config").select("*").order("orden",{ascending:true});
+  FIJOS_DEF=(data||[]).map(f=>[f.nombre, f.categoria, f.subcategoria, f.id]);
+}
+
+function openFijosCfg(){
+  document.getElementById("fijos-cfg-overlay").classList.add("open");
+  renderFijosCfgLista();
+}
+function closeFijosCfg(){document.getElementById("fijos-cfg-overlay").classList.remove("open");}
+function closeFijosCfgOnOverlay(e){if(e.target===document.getElementById("fijos-cfg-overlay"))closeFijosCfg();}
+
+function renderFijosCfgLista(){
+  const el=document.getElementById("fijos-cfg-lista");
+  if(!FIJOS_DEF.length){el.innerHTML='<div class="empty" style="padding:16px 0">Sin fijos configurados aún</div>';return;}
+  el.innerHTML=FIJOS_DEF.map(([nombre,cat,sub,id])=>`
+    <div class="fijos-cfg-row">
+      <div>
+        <div class="fijos-cfg-nombre">${nombre}</div>
+        <div class="fijos-cfg-meta">${cat} · ${sub}</div>
+      </div>
+      <button class="fijos-cfg-del" onclick="eliminarFijo('${id}')" title="Eliminar">🗑</button>
+    </div>`).join("");
+}
+
+async function eliminarFijo(id){
+  const {error}=await sb.from("fijos_config").delete().eq("id",id);
+  if(error){document.getElementById("fijos-cfg-error").textContent="Error: "+error.message;return;}
+  await cargarFijos();
+  renderFijosCfgLista();
+  renderAll();
+}
+
+async function agregarFijo(){
+  const nombre=document.getElementById("fijo-nombre").value.trim();
+  const cat=document.getElementById("fijo-cat").value;
+  const sub=document.getElementById("fijo-sub").value.trim();
+  const errEl=document.getElementById("fijos-cfg-error");
+  errEl.textContent="";
+  if(!nombre||!cat||!sub){errEl.textContent="Completá nombre, categoría y subcategoría";return;}
+  const orden=FIJOS_DEF.length;
+  const {error}=await sb.from("fijos_config").insert({user_id:currentUser.id,nombre,categoria:cat,subcategoria:sub,orden});
+  if(error){errEl.textContent="Error: "+error.message;return;}
+  document.getElementById("fijo-nombre").value="";
+  document.getElementById("fijo-cat").value="";
+  document.getElementById("fijo-sub").value="";
+  await cargarFijos();
+  renderFijosCfgLista();
+  renderAll();
+}
+
 // ── SYNC ────────────────────────────────────────────────────────
 async function syncData(){
   const dot=document.getElementById("sync-dot"),lbl=document.getElementById("sync-lbl");
   dot.classList.add("syncing"); lbl.textContent="Actualizando...";
   try{
+    await cargarFijos();
     const {data,error}=await sb.from("movimientos").select("*").order("fecha",{ascending:true});
     if(error) throw error;
 
