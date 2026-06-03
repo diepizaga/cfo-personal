@@ -365,24 +365,23 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   </div>
 </div>
 
+<!-- TABS eliminados — navegación solo por bottom nav -->
 
 <div class="scroll" id="app-scroll" style="display:none">
 
   <!-- ── INICIO ── -->
   <div class="tab-pane active" id="pane-0">
+    <!-- HERO PRIMERO: lo más importante, sin alertas encima -->
+    <div class="hero" style="margin-bottom:10px">
+      <div class="hero-label">Disponible del mes</div>
+      <div class="hero-amount" id="hero-libre">—</div>
+      <div class="hero-sub" id="hero-sub">—</div>
+      <div class="hero-action" id="hero-action">—</div>
+    </div>
+    <!-- ALERTAS debajo del hero -->
     <div id="alert-zone"></div>
     <div id="saldo-esperado-zone"></div>
     <div id="saldo-actual-zone"></div>
-    <div class="hero">
-      <div class="hero-label">Podés gastar hoy</div>
-      <div class="hero-amount" id="hero-libre">—</div>
-      <div class="hero-sub" id="hero-sub">—</div>
-      <div style="height:1px;background:var(--border);margin:12px 0 10px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--t2);font-weight:500">Disponible del mes</span>
-        <span id="hero-disponible" style="font-size:16px;font-weight:700">—</span>
-      </div>
-    </div>
     <div class="salud-card equilibrado" id="salud-card">
       <div class="salud-emoji" id="salud-emoji">⚪</div>
       <div class="salud-body">
@@ -613,7 +612,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
     <div class="form-group" id="fg-subcategoria">
       <label class="form-label">Subcategoría</label>
-      <input type="text" class="form-input" id="f-subcategoria" placeholder="Ej: Super / Almacén">
+      <input type="text" class="form-input" id="f-subcategoria" placeholder="Seleccioná o escribí…" list="subcats-list" autocomplete="off">
+      <datalist id="subcats-list"></datalist>
     </div>
 
     <div class="form-group" id="fg-ing-tipo" style="display:none">
@@ -701,6 +701,35 @@ function initCierreUI(){
 // FIJOS_DEF se carga dinámicamente desde Supabase por usuario
 let FIJOS_DEF = []; // [nombre, categoria, subcategoria]
 const COLORS = ["#16A34A","#F59E0B","#DC2626","#6B7280","#0F766E","#7C3AED","#1D4ED8","#9A3412","#374151","#059669"];
+
+// Subcategorías default por categoría (base)
+const SUBCATS_DEFAULT = {
+  "Consumo":    ["Super / Almacén","Kiosko","Panadería","Verdulería","Carnicería","Delivery","Restaurante","Cafetería","Farmacia","Otros consumos"],
+  "Personal":   ["Ropa","Calzado","Peluquería","Delivery","Entretenimiento","Tecnología","Libros","Otros personal"],
+  "Servicios":  ["EDESUR","Expensas","ABL","Internet","Teléfono","Gas","Agua","Streaming","Otros servicios"],
+  "Deuda":      ["Visa - Santander","Amex - Santander","PH - Ciudad","PP - Santander","PP - Anses","Descubierto - Santander","Otros préstamos"],
+  "Transporte": ["Taxi / Uber","Combustible","Estacionamiento","SUBE","Multas","Mecánico","Otros transporte"],
+  "Salud":      ["Médico","Farmacia","GYM","Psicóloga","Dentista","Óptica","Prepagas","Otros salud"],
+  "Otros":      ["Regalo","Donación","Hogar","Mascota","Viaje","Otros"],
+};
+
+function updateSubcats(){
+  const cat = document.getElementById("f-categoria").value;
+  document.getElementById("f-subcategoria").value = "";
+
+  // Combinar: defaults + fijos del usuario para esa cat + historial del usuario
+  const defaults = SUBCATS_DEFAULT[cat] || [];
+  const deFijos = FIJOS_DEF.filter(([,c])=>c.toLowerCase()===cat.toLowerCase()).map(([,, s])=>s);
+  const deHistorial = [...new Set(
+    allMovs.filter(m=>m.cat===cat&&m.sub).map(m=>m.sub)
+  )].slice(0,15);
+
+  // Unificar sin duplicados, fijos primero
+  const todas = [...new Set([...deFijos, ...defaults, ...deHistorial])];
+
+  const dl = document.getElementById("subcats-list");
+  dl.innerHTML = todas.map(s=>`<option value="${s}">`).join("");
+}
 const MNAMES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 // ── STATE ───────────────────────────────────────────────────────
@@ -976,26 +1005,22 @@ function renderInicio(){
   const diasRest=esActual?Math.max(1,diasMes-hoy.getDate()+1):1;
   const xDia=libre>0?libre/diasRest:0;
 
-  const noIngReal=ingresos===0;
-  const hayAhorro=usoAhorroMes>0;
-
   const heroEl=document.getElementById("hero-libre");
-  heroEl.textContent=fmt(xDia);
+  heroEl.textContent=fmt(libre);
   if(libre<0) heroEl.style.color="var(--red)";
-  else if(hayAhorro) heroEl.style.color="#F59E0B";
+  else if(libre>0&&usoAhorroMes>0) heroEl.style.color="#F59E0B";
   else if(libre>0) heroEl.style.color="var(--green)";
   else heroEl.style.color="var(--text)";
 
-  document.getElementById("hero-sub").textContent=(noIngReal&&hayAhorro)?"Sin ingresos — estás usando ahorro":noIngReal?"Sin ingresos registrados":`por día · ${diasRest} días restantes`;
+  const noIngReal=ingresos===0;
+  const hayAhorro=usoAhorroMes>0;
+  document.getElementById("hero-sub").textContent=(noIngReal&&hayAhorro)?"Sin ingresos — estás usando ahorro":noIngReal?"Sin ingresos registrados":`${fmt(xDia)}/día · ${diasRest} días restantes`;
 
-  const heroDispEl=document.getElementById("hero-disponible");
-  if(heroDispEl){
-    heroDispEl.textContent=fmt(libre);
-    if(libre<0) heroDispEl.style.color="var(--red)";
-    else if(hayAhorro) heroDispEl.style.color="#F59E0B";
-    else if(libre>0) heroDispEl.style.color="var(--green)";
-    else heroDispEl.style.color="var(--text)";
-  }
+  const actionEl=document.getElementById("hero-action");
+  if(libre<0){actionEl.textContent="No deberías gastar más este mes";actionEl.style.color="var(--red)";}
+  else if(usoAhorroMes>0){actionEl.textContent=`Podés gastar hasta ${fmt(xDia)} por día (usando ahorro)`;actionEl.style.color="#F59E0B";}
+  else if(libre>0){actionEl.textContent=`Podés gastar hasta ${fmt(xDia)} por día`;actionEl.style.color="var(--green)";}
+  else{actionEl.textContent="";}
 
   document.getElementById("kpi-ing").textContent=fmt(ingresos);
   document.getElementById("kpi-ing-sub").textContent=movsMes.filter(m=>m.tipo==="Ingreso").length+" registro(s)";
@@ -1312,7 +1337,6 @@ function renderIngresos(){
 function goTab(i){
   document.querySelectorAll(".tab-pane").forEach((p,idx)=>p.classList.toggle("active",idx===i));
   document.querySelectorAll(".nav-item").forEach((n,idx)=>n.classList.toggle("active",idx===i));
-  document.querySelectorAll(".tabs .tab").forEach((t,idx)=>t.classList.toggle("active",idx===i));
 }
 
 // ── MODAL NUEVO MOVIMIENTO ──────────────────────────────────────
