@@ -94,12 +94,18 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh)}
 .card-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
 
-/* ── HERO ── */
-.hero{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px 16px;margin-bottom:12px;box-shadow:var(--sh-md)}
-.hero-label{font-size:12px;font-weight:500;color:var(--t2);margin-bottom:6px}
-.hero-amount{font-size:clamp(26px,8vw,40px);font-weight:800;letter-spacing:-1.5px;line-height:1;color:var(--text);margin-bottom:4px;word-break:break-word}
-.hero-sub{font-size:12px;color:var(--t2);margin-top:2px}
-.hero-action{font-size:13px;font-weight:600;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+/* ── HERO UNIFICADO ── */
+.hero{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px 16px;margin-bottom:10px;box-shadow:var(--sh-md)}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:10px}
+.hero-label{font-size:12px;font-weight:500;color:var(--t2);margin-bottom:4px}
+.hero-amount{font-size:clamp(30px,9vw,44px);font-weight:800;letter-spacing:-2px;line-height:1;color:var(--text);margin-bottom:4px;word-break:break-word}
+.hero-sub{font-size:12px;color:var(--t2);margin-bottom:14px}
+.hero-sep{height:1px;background:var(--border);margin-bottom:12px}
+.hero-details{display:flex;flex-direction:column;gap:8px}
+.hero-detail-row{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.hero-detail-label{color:var(--t2);font-weight:500}
+.hero-detail-val{font-weight:700;color:var(--text)}
+.hero-action{font-size:13px;font-weight:600;color:var(--green)}
 
 /* ── KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -371,24 +377,35 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 
   <!-- ── INICIO ── -->
   <div class="tab-pane active" id="pane-0">
-    <!-- HERO PRIMERO: lo más importante, sin alertas encima -->
-    <div class="hero" style="margin-bottom:10px">
+
+    <!-- ═══ TARJETA 1: ESTADO DEL MES ═══ -->
+    <div class="hero" id="card-estado">
+      <!-- Badge de salud -->
+      <div class="hero-badge" id="salud-badge">⚪ Cargando...</div>
+      <!-- Número principal -->
       <div class="hero-label">Disponible del mes</div>
       <div class="hero-amount" id="hero-libre">—</div>
       <div class="hero-sub" id="hero-sub">—</div>
-      <div class="hero-action" id="hero-action">—</div>
-    </div>
-    <!-- ALERTAS debajo del hero -->
-    <div id="alert-zone"></div>
-    <div id="saldo-esperado-zone"></div>
-    <div id="saldo-actual-zone"></div>
-    <div class="salud-card equilibrado" id="salud-card">
-      <div class="salud-emoji" id="salud-emoji">⚪</div>
-      <div class="salud-body">
-        <div class="salud-title equilibrado" id="salud-title">—</div>
-        <div class="salud-sub" id="salud-sub">Cargando datos...</div>
+      <!-- Separador -->
+      <div class="hero-sep"></div>
+      <!-- Detalles compactos -->
+      <div class="hero-details">
+        <div class="hero-detail-row">
+          <span class="hero-detail-label">🏦 Saldo en cuenta ahora</span>
+          <span class="hero-detail-val" id="saldo-actual-val">—</span>
+        </div>
+        <div class="hero-detail-row" id="cierre-row" style="display:none">
+          <span class="hero-detail-label">📅 Al cerrar el mes</span>
+          <span class="hero-detail-val" id="cierre-val">—</span>
+        </div>
+        <div class="hero-detail-row" id="hero-action-row">
+          <span class="hero-detail-label" id="hero-action-lbl">Podés gastar</span>
+          <span class="hero-action" id="hero-action">—</span>
+        </div>
       </div>
     </div>
+
+    <!-- ═══ TARJETA 2: RITMO DE GASTO ═══ -->
     <div class="ritmo-card ok" id="ritmo-card">
       <div class="ritmo-title ok" id="ritmo-estado">—</div>
       <div class="ritmo-desc" id="ritmo-desc">—</div>
@@ -405,6 +422,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
         </div>
         <div class="ritmo-bar-pct" id="pct-gasto-ritmo">0%</div>
       </div>
+      <!-- Ritmo diario integrado -->
+      <div id="ritmo-diario-inline" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06);font-size:12px;color:var(--t2)" id="ritmo-diario-inline"></div>
     </div>
     <div class="section-label">Resumen del mes</div>
     <div class="card">
@@ -1041,6 +1060,7 @@ function renderInicio(){
   const diasRest=esActual?Math.max(1,diasMes-hoy.getDate()+1):1;
   const xDia=libre>0?libre/diasRest:0;
 
+  // ── TARJETA 1: ESTADO DEL MES ──────────────────────────────────
   const heroEl=document.getElementById("hero-libre");
   heroEl.textContent=fmt(libre);
   if(libre<0) heroEl.style.color="var(--red)";
@@ -1049,14 +1069,65 @@ function renderInicio(){
   else heroEl.style.color="var(--text)";
 
   const noIngReal=ingresos===0;
-  const hayAhorro=usoAhorroMes>0;
-  document.getElementById("hero-sub").textContent=(noIngReal&&hayAhorro)?"Sin ingresos — estás usando ahorro":noIngReal?"Sin ingresos registrados":`${fmt(xDia)}/día · ${diasRest} días restantes`;
+  document.getElementById("hero-sub").textContent=
+    noIngReal&&usoAhorroMes>0?"Sin ingresos — usando ahorro":
+    noIngReal?"Sin ingresos registrados":
+    `${fmt(xDia)}/día · ${diasRest} días restantes`;
 
+  // Saldo real en cuenta
+  const saIngTotal=movsMes.filter(m=>m.tipo==="Ingreso").reduce((a,b)=>a+b.monto,0);
+  const saGasTotal=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera").reduce((a,b)=>a+b.monto,0);
+  const saldoActual=saIngTotal-saGasTotal-ahorradoMes;
+  const saEl=document.getElementById("saldo-actual-val");
+  saEl.textContent=fmt(saldoActual);
+  saEl.style.color=saldoActual>=0?"var(--green)":"var(--red)";
+
+  // Cierre proyectado — solo mostrar si difiere del disponible
+  const saldoEsperado=ingresos+usoAhorroMes+movInternoMes-totalFijos-gastosLibres;
+  const cierreRow=document.getElementById("cierre-row");
+  const diff_cierre=Math.abs(saldoEsperado-libre);
+  if(diff_cierre>100){
+    cierreRow.style.display="flex";
+    const cEl=document.getElementById("cierre-val");
+    cEl.textContent=fmt(saldoEsperado);
+    cEl.style.color=saldoEsperado>=0?"var(--green)":"var(--red)";
+  } else {
+    cierreRow.style.display="none";
+  }
+
+  // Acción principal
   const actionEl=document.getElementById("hero-action");
-  if(libre<0){actionEl.textContent="No deberías gastar más este mes";actionEl.style.color="var(--red)";}
-  else if(usoAhorroMes>0){actionEl.textContent=`Podés gastar hasta ${fmt(xDia)} por día (usando ahorro)`;actionEl.style.color="#F59E0B";}
-  else if(libre>0){actionEl.textContent=`Podés gastar hasta ${fmt(xDia)} por día`;actionEl.style.color="var(--green)";}
-  else{actionEl.textContent="";}
+  const actionLbl=document.getElementById("hero-action-lbl");
+  if(libre<0){
+    actionEl.textContent="No gastes más este mes";
+    actionEl.style.color="var(--red)";
+    actionLbl.textContent="⚠️";
+  } else if(usoAhorroMes>0){
+    actionEl.textContent=`${fmt(xDia)}/día (con ahorro)`;
+    actionEl.style.color="#F59E0B";
+    actionLbl.textContent="Podés gastar";
+  } else {
+    actionEl.textContent=`${fmt(xDia)}/día`;
+    actionEl.style.color="var(--green)";
+    actionLbl.textContent="Podés gastar";
+  }
+
+  // Badge de salud (reemplaza salud-card)
+  const badge=document.getElementById("salud-badge");
+  const card=document.getElementById("card-estado");
+  if(libre<0){
+    badge.textContent="🔴 Mes en déficit";badge.style.color="var(--red)";
+    card.style.borderColor="var(--red-border)";card.style.background="var(--red-bg)";
+  } else if(usoAhorroMes>0&&libre>=0){
+    badge.textContent="🟡 Cubierto con ahorro";badge.style.color="#92400E";
+    card.style.borderColor="var(--yellow-border)";card.style.background="var(--yellow-bg)";
+  } else if(libre>0){
+    badge.textContent="🟢 Mes positivo";badge.style.color="var(--green)";
+    card.style.borderColor="var(--green-border)";card.style.background="var(--green-bg)";
+  } else {
+    badge.textContent="⚪ Mes equilibrado";badge.style.color="var(--t2)";
+    card.style.borderColor="var(--border)";card.style.background="var(--card)";
+  }
 
   document.getElementById("kpi-ing").textContent=fmt(ingresos);
   document.getElementById("kpi-ing-sub").textContent=movsMes.filter(m=>m.tipo==="Ingreso").length+" registro(s)";
@@ -1071,19 +1142,6 @@ function renderInicio(){
   if(ahorroEgresoRow){ahorroEgresoRow.style.display=ahorradoMes>0?"block":"none";document.getElementById("kpi-ahorrado-mes").textContent=fmt(ahorradoMes);}
 
   const promedioRealDia=diasTranscurridos>0?gastosLibres/diasTranscurridos:0;
-  const kpiFull=document.getElementById("kpi-diario-card");
-  const ritmoMsg=document.getElementById("ritmo-diario-msg");
-  const ritmoSub=document.getElementById("ritmo-diario-sub");
-  if(promedioRealDia>xDia*1.05){
-    ritmoMsg.textContent=`Gastás ${fmt(promedioRealDia)}/día (deberías ${fmt(xDia)}/día)`;
-    ritmoMsg.style.color="var(--red)";ritmoSub.textContent="Estás por encima del ritmo";kpiFull.style.borderLeftColor="var(--red)";
-  }else if(promedioRealDia>xDia*0.9){
-    ritmoMsg.textContent=`Gastás ${fmt(promedioRealDia)}/día (deberías ${fmt(xDia)}/día)`;
-    ritmoMsg.style.color="#F59E0B";ritmoSub.textContent="Estás justo en el límite";kpiFull.style.borderLeftColor="#F59E0B";
-  }else{
-    ritmoMsg.textContent=`Gastás ${fmt(promedioRealDia)}/día (deberías ${fmt(xDia)}/día)`;
-    ritmoMsg.style.color="var(--green)";ritmoSub.textContent="Buen ritmo de gasto";kpiFull.style.borderLeftColor="var(--green)";
-  }
 
   const pctMes=esActual?Math.round(diasTranscurridos/diasMes*100):100;
   const fijosPagadosReal=fijos.filter(f=>f.estado==="pagado").reduce((a,f)=>a+f.monto,0);
@@ -1108,18 +1166,18 @@ function renderInicio(){
   document.getElementById("pct-gasto-ritmo").textContent=pctGasto+"%";
   document.getElementById("marker-mes").style.left=pctMes+"%";
 
+  // Ritmo diario integrado dentro del card de ritmo
+  const rdi=document.getElementById("ritmo-diario-inline");
+  if(rdi&&ingresos>0){
+    const diaColor=promedioRealDia>xDia*1.05?"var(--red)":promedioRealDia>xDia*0.9?"#F59E0B":"var(--green)";
+    rdi.innerHTML=`Gastás <strong style="color:${diaColor}">${fmt(promedioRealDia)}/día</strong> · ideal <strong>${fmt(xDia)}/día</strong>`;
+  }
+
   const pF=pct(totalFijos,ingresos),pL=pct(gastosLibres,ingresos);
   document.getElementById("pct-f").textContent=pF+"%";document.getElementById("bar-f").style.width=pF+"%";
   document.getElementById("pct-l").textContent=pL+"%";document.getElementById("bar-l").style.width=pL+"%";
 
-  const az=document.getElementById("alert-zone");az.innerHTML="";
-  if(!ingresos&&!usoAhorroMes){az.innerHTML=`<div class="alert warn">Registrá tu ingreso del mes para activar todos los cálculos</div>`;}
-  else if(libre<0&&usoAhorroMes>0){az.innerHTML=`<div class="alert danger">Incluso usando ahorro, estás en déficit de ${fmt(Math.abs(libre))}</div>`;}
-  else if(libre<0){az.innerHTML=`<div class="alert danger">Estás en déficit de ${fmt(Math.abs(libre))} — revisá los fijos o reducí gastos</div>`;}
-  else if(usoAhorroMes>0){az.innerHTML=`<div class="alert warn">Estás usando ahorro para sostener tu nivel de gasto</div>`;}
-  else if(diff>20){az.innerHTML=`<div class="alert danger">Estás gastando mucho más rápido que el mes — ${diff}pts adelantado</div>`;}
-  else if(diff>8){az.innerHTML=`<div class="alert warn">Estás gastando más rápido que el mes</div>`;}
-  else{az.innerHTML=`<div class="alert ok">Todo bajo control</div>`;}
+  // Alertas eliminadas — la info está unificada en las 2 tarjetas
 
   const tieneDatosMes=fijos.some(f=>f.estado==="pagado");
   document.getElementById("fijos-note").textContent=tieneDatosMes?"✓ Pagado este mes  ·  ref = del mes anterior":"📋 Referencia del mes anterior — se actualizan al cargar los pagos";
@@ -1171,33 +1229,7 @@ function renderInicio(){
   else if(excedente<0){kpiExcEl.style.color="var(--red)";kpiExcSub.textContent="Terminás el mes en negativo";}
   else{kpiExcEl.style.color="var(--t2)";kpiExcSub.textContent="Mes equilibrado";}
 
-  const saludCard=document.getElementById("salud-card");
-  const saludEmoji=document.getElementById("salud-emoji");
-  const saludTitle=document.getElementById("salud-title");
-  const saludSub=document.getElementById("salud-sub");
-  if(excedente<0){saludCard.className="salud-card negativo";saludEmoji.textContent="🔴";saludTitle.className="salud-title negativo";saludTitle.textContent="Mes en déficit";saludSub.textContent=`Te faltan ${fmt(Math.abs(excedente))} para cubrir el mes`;}
-  else if(usoAhorro>0&&excedente>=0){saludCard.className="salud-card advertencia";saludEmoji.textContent="🟡";saludTitle.className="salud-title advertencia";saludTitle.textContent="Mes cubierto con ahorro";saludSub.textContent=`Cubriste ${fmt(usoAhorro)} con ahorro para sostener el mes`;}
-  else if(excedente>0&&usoAhorro===0){saludCard.className="salud-card positivo";saludEmoji.textContent="🟢";saludTitle.className="salud-title positivo";saludTitle.textContent="Mes positivo";saludSub.textContent=`Te sobran ${fmt(excedente)} — vivís de lo que ganás`;}
-  else{saludCard.className="salud-card equilibrado";saludEmoji.textContent="⚪";saludTitle.className="salud-title equilibrado";saludTitle.textContent="Mes equilibrado";saludSub.textContent="Gastás exactamente lo que ganás";}
-
-  const saIngTotal=movsMes.filter(m=>m.tipo==="Ingreso").reduce((a,b)=>a+b.monto,0);
-  const saGasTotal=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera").reduce((a,b)=>a+b.monto,0);
-  const saldoActual=saIngTotal-saGasTotal-ahorradoMes;
-  const saZone=document.getElementById("saldo-actual-zone");
-  if(saZone){
-    const saColor=saldoActual>=0?"var(--green)":"var(--red)";
-    const saMsg=saldoActual>=0?`🏦 Saldo cuenta ahora: <strong>${fmt(saldoActual)}</strong> <span style="font-weight:400;font-size:12px">(ingresos − gastos registrados)</span>`:`🏦 Saldo cuenta ahora: <strong style="color:var(--red)">−${fmt(Math.abs(saldoActual))}</strong>`;
-    saZone.innerHTML=`<div style="background:${saldoActual>=0?'var(--green-bg)':'var(--red-bg)'};border:1px solid ${saldoActual>=0?'var(--green-border)':'var(--red-border)'};border-left:3px solid ${saColor};border-radius:var(--r-sm);padding:14px 16px;margin-bottom:12px;font-size:14px;font-weight:500;color:${saColor};line-height:1.4">${saMsg}</div>`;
-  }
-
-  const totalIngresosMes=ingresos+usoAhorroMes+movInternoMes;
-  const saldoEsperado=totalIngresosMes-totalFijos-gastosLibres;
-  const szEl=document.getElementById("saldo-esperado-zone");
-  if(szEl){
-    if(saldoEsperado>0)szEl.innerHTML=`<div class="alert ok" style="margin-bottom:12px">📅 Cierre proyectado: <strong>${fmt(saldoEsperado)}</strong> de excedente</div>`;
-    else if(saldoEsperado<0)szEl.innerHTML=`<div class="alert danger" style="margin-bottom:12px">📅 Cierre proyectado: te faltan <strong>${fmt(Math.abs(saldoEsperado))}</strong></div>`;
-    else szEl.innerHTML="";
-  }
+  // salud-card ya no existe en el DOM — el badge está en card-estado (manejado arriba)
 
   renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,pctMes,usoAhorro,depAhorro);
 }
