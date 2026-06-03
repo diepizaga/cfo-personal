@@ -463,7 +463,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       <div class="prog-track" style="margin-bottom:0"><div class="prog-fill" id="bar-l" style="width:0%;background:var(--yellow)"></div></div>
     </div>
     <div class="section-label">Compromisos del mes</div>
-    <button class="cfg-link" onclick="openFijosCfg()">⚙️ Configurar mis fijos</button>
+    <button class="cfg-link" onclick="openFijosCfg()">⚙️ Mis categorías y fijos</button>
     <div class="info-note" id="fijos-note"></div>
     <div class="card" id="fijos-list"></div>
     <div class="section-label">Insights del mes</div>
@@ -542,27 +542,32 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 <!-- FAB -->
 <button class="fab" id="fab-btn" style="display:none" onclick="openModal()" title="Nuevo movimiento">+</button>
 
-<!-- MODAL FIJOS CONFIG -->
+<!-- MODAL SUBCATEGORÍAS CONFIG -->
 <div class="modal-overlay" id="fijos-cfg-overlay" onclick="closeFijosCfgOnOverlay(event)">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Mis compromisos fijos</div>
+      <div class="modal-title">Mis categorías y fijos</div>
       <button class="modal-close" onclick="closeFijosCfg()">×</button>
     </div>
     <div style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.5">
-      Estos son los gastos que la app reconoce automáticamente como fijos. Tienen que coincidir con la <strong>Categoría</strong> y <strong>Subcategoría</strong> que usás al cargar gastos.
+      Todas las subcategorías que usás para cargar gastos. Marcá como <strong>Fijo</strong> las que se repiten cada mes — la app las reconoce automáticamente en los compromisos.
     </div>
     <div id="fijos-cfg-lista"></div>
-    <div style="margin-top:16px;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Agregar nuevo fijo</div>
-    <div class="fijos-add-form">
-      <input type="text" id="fijo-nombre" placeholder="Nombre (ej: Gym)">
-      <select id="fijo-cat">
-        <option value="">Categoría...</option>
-        <option>Consumo</option><option>Personal</option><option>Servicios</option>
-        <option>Deuda</option><option>Transporte</option><option>Salud</option><option>Otros</option>
-      </select>
-      <input type="text" id="fijo-sub" placeholder="Subcategoría exacta" style="grid-column:1/-1">
-      <button class="fijos-add-btn" onclick="agregarFijo()">+ Agregar fijo</button>
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Agregar subcategoría</div>
+      <div class="fijos-add-form">
+        <select id="fijo-cat" style="grid-column:1/-1">
+          <option value="">Categoría...</option>
+          <option>Consumo</option><option>Personal</option><option>Servicios</option>
+          <option>Deuda</option><option>Transporte</option><option>Salud</option><option>Otros</option>
+        </select>
+        <input type="text" id="fijo-sub" placeholder="Nombre de subcategoría" style="grid-column:1/-1">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer;padding:8px 0">
+          <input type="checkbox" id="fijo-nombre" style="accent-color:var(--green);width:16px;height:16px">
+          Marcar como <strong style="color:var(--green)">Fijo mensual</strong>
+        </label>
+        <button class="fijos-add-btn" onclick="agregarFijo()" style="grid-column:1/-1">+ Agregar</button>
+      </div>
     </div>
     <div class="auth-error" id="fijos-cfg-error"></div>
   </div>
@@ -698,35 +703,33 @@ function initCierreUI(){
   document.getElementById("cierre-input").value = dia;
 }
 
-// FIJOS_DEF se carga dinámicamente desde Supabase por usuario
-let FIJOS_DEF = []; // [nombre, categoria, subcategoria]
+// Subcategorías del usuario cargadas desde Supabase
+// Cada item: { id, categoria, subcategoria, es_fijo, orden }
+let SUBCATS_CONFIG = [];
+// Retrocompatibilidad: FIJOS_DEF = subcats con es_fijo=true → [nombre, cat, sub, id]
+let FIJOS_DEF = [];
 const COLORS = ["#16A34A","#F59E0B","#DC2626","#6B7280","#0F766E","#7C3AED","#1D4ED8","#9A3412","#374151","#059669"];
 
-// Subcategorías default por categoría (base)
-const SUBCATS_DEFAULT = {
-  "Consumo":    ["Super / Almacén","Kiosko","Panadería","Verdulería","Carnicería","Delivery","Restaurante","Cafetería","Farmacia","Otros consumos"],
-  "Personal":   ["Ropa","Calzado","Peluquería","Delivery","Entretenimiento","Tecnología","Libros","Otros personal"],
-  "Servicios":  ["EDESUR","Expensas","ABL","Internet","Teléfono","Gas","Agua","Streaming","Otros servicios"],
-  "Deuda":      ["Visa - Santander","Amex - Santander","PH - Ciudad","PP - Santander","PP - Anses","Descubierto - Santander","Otros préstamos"],
-  "Transporte": ["Taxi / Uber","Combustible","Estacionamiento","SUBE","Multas","Mecánico","Otros transporte"],
-  "Salud":      ["Médico","Farmacia","GYM","Psicóloga","Dentista","Óptica","Prepagas","Otros salud"],
-  "Otros":      ["Regalo","Donación","Hogar","Mascota","Viaje","Otros"],
-};
+// Subcategorías que son "fijos opcionales" — el CFO las usa para sugerir recortes
+// Se determina dinámicamente: fijos que NO son deuda, expensas, servicios básicos
+const SUBS_INEVITABLES = ["expensas","edesur","abl","ph - ciudad","pp - santander","pp - anses","descubierto - santander","women - santander","seguro auto","patente","ike mascotas","psicóloga"];
 
 function updateSubcats(){
   const cat = document.getElementById("f-categoria").value;
   document.getElementById("f-subcategoria").value = "";
 
-  // Combinar: defaults + fijos del usuario para esa cat + historial del usuario
-  const defaults = SUBCATS_DEFAULT[cat] || [];
-  const deFijos = FIJOS_DEF.filter(([,c])=>c.toLowerCase()===cat.toLowerCase()).map(([,, s])=>s);
+  // Subcats del usuario para esa cat (fijos primero, luego el resto)
+  const deCfg = SUBCATS_CONFIG
+    .filter(s=>s.categoria===cat)
+    .sort((a,b)=> b.es_fijo - a.es_fijo || a.orden - b.orden)
+    .map(s=>s.subcategoria);
+
+  // Agregar las del historial que no estén ya en la config
   const deHistorial = [...new Set(
     allMovs.filter(m=>m.cat===cat&&m.sub).map(m=>m.sub)
-  )].slice(0,15);
+  )].filter(s=>!deCfg.includes(s));
 
-  // Unificar sin duplicados, fijos primero
-  const todas = [...new Set([...deFijos, ...defaults, ...deHistorial])];
-
+  const todas = [...deCfg, ...deHistorial];
   const dl = document.getElementById("subcats-list");
   dl.innerHTML = todas.map(s=>`<option value="${s}">`).join("");
 }
@@ -799,55 +802,88 @@ function showAuthScreen(){
   setTimeout(()=>loadEl.style.display="none",260);
 }
 
-// ── FIJOS CONFIG ────────────────────────────────────────────────
+// ── SUBCATEGORÍAS CONFIG ─────────────────────────────────────────
 async function cargarFijos(){
-  const {data}=await sb.from("fijos_config").select("*").order("orden",{ascending:true});
-  FIJOS_DEF=(data||[]).map(f=>[f.nombre, f.categoria, f.subcategoria, f.id]);
+  const {data}=await sb.from("subcategorias_config").select("*").order("categoria").order("orden");
+  SUBCATS_CONFIG=data||[];
+  // FIJOS_DEF: subcats marcadas como fijo → [subcategoria, categoria, subcategoria, id]
+  FIJOS_DEF=SUBCATS_CONFIG.filter(s=>s.es_fijo).map(s=>[s.subcategoria, s.categoria, s.subcategoria, s.id]);
 }
 
 function openFijosCfg(){
   document.getElementById("fijos-cfg-overlay").classList.add("open");
-  renderFijosCfgLista();
+  renderSubcatsCfgLista();
+  // Poblar selector de cat en el form de agregar
+  document.getElementById("fijo-cat").value="";
+  document.getElementById("fijo-sub").value="";
+  document.getElementById("fijo-nombre").value="";
+  document.getElementById("fijos-cfg-error").textContent="";
 }
 function closeFijosCfg(){document.getElementById("fijos-cfg-overlay").classList.remove("open");}
 function closeFijosCfgOnOverlay(e){if(e.target===document.getElementById("fijos-cfg-overlay"))closeFijosCfg();}
 
-function renderFijosCfgLista(){
+const CATS_ORDEN=["Consumo","Personal","Servicios","Deuda","Transporte","Salud","Otros"];
+
+function renderSubcatsCfgLista(){
   const el=document.getElementById("fijos-cfg-lista");
-  if(!FIJOS_DEF.length){el.innerHTML='<div class="empty" style="padding:16px 0">Sin fijos configurados aún</div>';return;}
-  el.innerHTML=FIJOS_DEF.map(([nombre,cat,sub,id])=>`
-    <div class="fijos-cfg-row">
-      <div>
-        <div class="fijos-cfg-nombre">${nombre}</div>
-        <div class="fijos-cfg-meta">${cat} · ${sub}</div>
-      </div>
-      <button class="fijos-cfg-del" onclick="eliminarFijo('${id}')" title="Eliminar">🗑</button>
-    </div>`).join("");
+  if(!SUBCATS_CONFIG.length){el.innerHTML='<div class="empty" style="padding:16px 0">Sin subcategorías configuradas</div>';return;}
+  // Agrupar por categoría
+  const grupos={};
+  SUBCATS_CONFIG.forEach(s=>{
+    if(!grupos[s.categoria])grupos[s.categoria]=[];
+    grupos[s.categoria].push(s);
+  });
+  const cats=CATS_ORDEN.filter(c=>grupos[c]);
+  el.innerHTML=cats.map(cat=>`
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${cat}</div>
+      ${grupos[cat].map(s=>`
+        <div class="fijos-cfg-row">
+          <div style="flex:1;min-width:0">
+            <div class="fijos-cfg-nombre">${s.subcategoria}</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:${s.es_fijo?'var(--green)':'var(--t3)'};cursor:pointer;flex-shrink:0">
+            <input type="checkbox" ${s.es_fijo?'checked':''} onchange="toggleFijo('${s.id}',this.checked)"
+              style="accent-color:var(--green);width:15px;height:15px;cursor:pointer">
+            Fijo
+          </label>
+          <button class="fijos-cfg-del" onclick="eliminarSubcat('${s.id}')" title="Eliminar">🗑</button>
+        </div>`).join('')}
+    </div>`).join('');
 }
 
-async function eliminarFijo(id){
-  const {error}=await sb.from("fijos_config").delete().eq("id",id);
+async function toggleFijo(id, esFijo){
+  await sb.from("subcategorias_config").update({es_fijo:esFijo}).eq("id",id);
+  await cargarFijos();
+  renderSubcatsCfgLista();
+  renderAll();
+}
+
+async function eliminarSubcat(id){
+  const {error}=await sb.from("subcategorias_config").delete().eq("id",id);
   if(error){document.getElementById("fijos-cfg-error").textContent="Error: "+error.message;return;}
   await cargarFijos();
-  renderFijosCfgLista();
+  renderSubcatsCfgLista();
   renderAll();
 }
 
 async function agregarFijo(){
-  const nombre=document.getElementById("fijo-nombre").value.trim();
   const cat=document.getElementById("fijo-cat").value;
   const sub=document.getElementById("fijo-sub").value.trim();
+  const esFijo=document.getElementById("fijo-nombre").checked; // reuso campo como checkbox
   const errEl=document.getElementById("fijos-cfg-error");
   errEl.textContent="";
-  if(!nombre||!cat||!sub){errEl.textContent="Completá nombre, categoría y subcategoría";return;}
-  const orden=FIJOS_DEF.length;
-  const {error}=await sb.from("fijos_config").insert({user_id:currentUser.id,nombre,categoria:cat,subcategoria:sub,orden});
+  if(!cat||!sub){errEl.textContent="Completá categoría y subcategoría";return;}
+  const orden=SUBCATS_CONFIG.filter(s=>s.categoria===cat).length;
+  const {error}=await sb.from("subcategorias_config").insert({
+    user_id:currentUser.id, categoria:cat, subcategoria:sub, es_fijo:esFijo, orden
+  });
   if(error){errEl.textContent="Error: "+error.message;return;}
-  document.getElementById("fijo-nombre").value="";
   document.getElementById("fijo-cat").value="";
   document.getElementById("fijo-sub").value="";
+  document.getElementById("fijo-nombre").checked=false;
   await cargarFijos();
-  renderFijosCfgLista();
+  renderSubcatsCfgLista();
   renderAll();
 }
 
@@ -1207,6 +1243,34 @@ function renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,
   if(libre>0&&!usoAhorro&&pctFijosTotal<=65){
     const pctLibre=pct(libre,ingresos);
     insights.push({icon:"✅",text:`Mes sano: te sobran <strong>${fmt(libre)}</strong> (${pctLibre}% del ingreso)${pctLibre>=15?" — considerá destinar parte al ahorro":""}`,prioridad:2});
+  }
+
+  // ── FIJOS OPCIONALES: cuánto podrías liberar ──
+  const fijosOpcionales = SUBCATS_CONFIG.filter(s=>
+    s.es_fijo && !SUBS_INEVITABLES.includes(s.subcategoria.toLowerCase())
+  );
+  if(fijosOpcionales.length>0 && ingresos>0){
+    // Calcular cuánto valen los fijos opcionales este mes
+    const montoOpc = movsMes.filter(m=>
+      fijosOpcionales.some(f=>
+        f.categoria.toLowerCase()===m.cat.toLowerCase()&&
+        f.subcategoria.toLowerCase()===m.sub.toLowerCase()
+      )
+    ).reduce((a,b)=>a+b.monto,0);
+    // Estimar por fijos opcionales sin pago (usar referencia)
+    const fijosOpConValor = fijosOpcionales.map(f=>{
+      const pagado=movsMes.filter(m=>m.cat.toLowerCase()===f.categoria.toLowerCase()&&m.sub.toLowerCase()===f.subcategoria.toLowerCase()).reduce((a,b)=>a+b.monto,0);
+      if(pagado>0) return pagado;
+      // buscar referencia histórica
+      for(let i=mesList.indexOf(mesSel)-1;i>=0;i--){
+        const ref=allMovs.filter(m=>m.mes===mesList[i]&&m.cat.toLowerCase()===f.categoria.toLowerCase()&&m.sub.toLowerCase()===f.subcategoria.toLowerCase()).reduce((a,b)=>a+b.monto,0);
+        if(ref>0) return ref;
+      }
+      return 0;
+    }).reduce((a,b)=>a+b,0);
+    if(fijosOpConValor>0 && pct(fijosOpConValor,ingresos)>=5){
+      insights.push({icon:"✂️",text:`Tenés <strong>${fmt(fijosOpConValor)}</strong> en suscripciones y fijos opcionales (${pct(fijosOpConValor,ingresos)}% del ingreso) — GYM, streamings y similares que podrías revisar si querés liberar plata`,prioridad:2});
+    }
   }
   insights.sort((a,b)=>a.prioridad-b.prioridad);
   il.innerHTML=insights.length===0?'<div class="empty">Sin insights para este mes</div>':insights.map(i=>`<div class="insight-item"><div class="insight-icon">${i.icon}</div><div class="insight-text">${i.text}</div></div>`).join("");
