@@ -399,10 +399,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
           <span class="hero-detail-label">📅 Al cerrar el mes</span>
           <span class="hero-detail-val" id="cierre-val">—</span>
         </div>
-        <div class="hero-detail-row" id="hero-action-row">
-          <span class="hero-detail-label" id="hero-action-lbl">Podés gastar</span>
-          <span class="hero-action" id="hero-action">—</span>
-        </div>
+        <!-- hero-action removido — ya aparece debajo del número grande -->
       </div>
     </div>
 
@@ -1091,22 +1088,7 @@ function renderInicio(){
     cierreRow.style.display="none";
   }
 
-  // Acción principal
-  const actionEl=document.getElementById("hero-action");
-  const actionLbl=document.getElementById("hero-action-lbl");
-  if(libre<0){
-    actionEl.textContent="No gastes más este mes";
-    actionEl.style.color="var(--red)";
-    actionLbl.textContent="⚠️";
-  } else if(usoAhorroMes>0){
-    actionEl.textContent=`${fmt(xDia)}/día (con ahorro)`;
-    actionEl.style.color="#F59E0B";
-    actionLbl.textContent="Podés gastar";
-  } else {
-    actionEl.textContent=`${fmt(xDia)}/día`;
-    actionEl.style.color="var(--green)";
-    actionLbl.textContent="Podés gastar";
-  }
+  // hero-action removido del DOM — info ya está en hero-sub
 
   // Badge de salud (reemplaza salud-card)
   const badge=document.getElementById("salud-badge");
