@@ -99,13 +99,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:10px}
 .hero-label{font-size:12px;font-weight:500;color:var(--t2);margin-bottom:4px}
 .hero-amount{font-size:clamp(30px,9vw,44px);font-weight:800;letter-spacing:-2px;line-height:1;color:var(--text);margin-bottom:4px;word-break:break-word}
-.hero-sub{font-size:12px;color:var(--t2);margin-bottom:14px}
+.hero-sub{font-size:17px;font-weight:700;color:var(--t2);margin-bottom:14px}
 .hero-sep{height:1px;background:var(--border);margin-bottom:12px}
 .hero-details{display:flex;flex-direction:column;gap:8px}
 .hero-detail-row{display:flex;justify-content:space-between;align-items:center;font-size:13px}
 .hero-detail-label{color:var(--t2);font-weight:500}
 .hero-detail-val{font-weight:700;color:var(--text)}
-.hero-action{font-size:13px;font-weight:600;color:var(--green)}
+.hero-action{font-size:16px;font-weight:800;color:var(--green)}
 
 /* ── KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -234,13 +234,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .cuota-prog-lbl{display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px;color:var(--t2)}
 
 /* ── HISTORIAL ── */
-.comp-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:8px;box-shadow:var(--sh)}
-.comp-mes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.comp-mes-name{font-size:13px;font-weight:700;color:var(--text)}
-.comp-delta{font-size:11px;font-weight:600}
-.comp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
-.comp-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-weight:500}
-.comp-val{font-size:14px;font-weight:700;color:var(--text)}
+.comp-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:8px;box-shadow:var(--sh)}
+.comp-mes-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:8px}
+.comp-mes-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap}
+.comp-delta{font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px}
+.comp-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;font-weight:500}
+.comp-val{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap}
 
 /* ── CHARTS ── */
 .chart-wrap{position:relative;height:200px}
@@ -351,6 +351,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   <div class="header-top">
     <div class="logo">CFO <span>Personal</span></div>
     <div class="header-right">
+      <button class="sync-btn" onclick="openFijosCfg()" style="padding:6px 10px" title="Configuración">⚙️</button>
       <button class="sync-btn" onclick="syncData()">
         <div class="sync-dot" id="sync-dot"></div>
         <span id="sync-lbl">Actualizar</span>
@@ -469,11 +470,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
         <div class="kpi-sub" id="kpi-excedente-sub">resultado</div>
       </div>
     </div>
-    <div class="card" id="kpi-diario-card" style="border-left:3px solid var(--border)">
-      <div class="card-title">Ritmo de gasto diario</div>
-      <div id="ritmo-diario-msg" style="font-size:15px;font-weight:700;margin-bottom:4px">—</div>
-      <div id="ritmo-diario-sub" style="font-size:12px;color:var(--t2)">—</div>
-    </div>
+    <!-- tarjeta ritmo-diario eliminada — info integrada en tarjeta de ritmo -->
     <div class="card">
       <div class="card-title">% del ingreso consumido</div>
       <div class="prog-row"><span class="prog-label">Fijos</span><span class="prog-pct" id="pct-f">0%</span></div>
@@ -482,7 +479,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
       <div class="prog-track" style="margin-bottom:0"><div class="prog-fill" id="bar-l" style="width:0%;background:var(--yellow)"></div></div>
     </div>
     <div class="section-label">Compromisos del mes</div>
-    <button class="cfg-link" onclick="openFijosCfg()">⚙️ Mis categorías y fijos</button>
     <div class="info-note" id="fijos-note"></div>
     <div class="card" id="fijos-list"></div>
     <div class="section-label">Insights del mes</div>
