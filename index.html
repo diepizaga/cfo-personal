@@ -285,6 +285,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .form-input,.form-select{width:100%;height:44px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:14px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;-webkit-appearance:none}
 .form-input:focus,.form-select:focus{border-color:var(--green)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ── SUBCAT DROPDOWN CUSTOM (reemplaza datalist para iOS) ── */
+.subcat-wrap{position:relative}
+.subcat-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:300;max-height:220px;overflow-y:auto;display:none}
+.subcat-dropdown.open{display:block}
+.subcat-opt{padding:12px 14px;font-size:14px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.subcat-opt:last-child{border-bottom:none}
+.subcat-opt:active{background:var(--bg)}
+.subcat-opt-fijo{font-size:10px;font-weight:700;color:var(--green);background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:1px 5px;flex-shrink:0}
 .tipo-tabs{display:flex;gap:6px;margin-bottom:4px}
 .tipo-tab{flex:1;padding:9px;text-align:center;font-size:13px;font-weight:600;border:2px solid var(--border);border-radius:8px;cursor:pointer;color:var(--t2);background:var(--bg);transition:all .15s}
 .tipo-tab.active-ingreso{border-color:var(--green);color:var(--green);background:var(--green-bg)}
@@ -682,8 +691,12 @@ body { background: var(--bg); }
 
     <div class="form-group" id="fg-subcategoria">
       <label class="form-label">Subcategoría</label>
-      <input type="text" class="form-input" id="f-subcategoria" placeholder="Seleccioná o escribí…" list="subcats-list" autocomplete="off">
-      <datalist id="subcats-list"></datalist>
+      <div class="subcat-wrap">
+        <input type="text" class="form-input" id="f-subcategoria" placeholder="Seleccioná o escribí…"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          oninput="filterSubcats()" onfocus="openSubcatDrop()" readonly>
+        <div class="subcat-dropdown" id="subcat-dropdown"></div>
+      </div>
     </div>
 
     <div class="form-group" id="fg-ing-tipo" style="display:none">
@@ -779,25 +792,67 @@ const COLORS = ["#16A34A","#F59E0B","#DC2626","#6B7280","#0F766E","#7C3AED","#1D
 // Se determina dinámicamente: fijos que NO son deuda, expensas, servicios básicos
 const SUBS_INEVITABLES = ["expensas","edesur","abl","ph - ciudad","pp - santander","pp - anses","descubierto - santander","women - santander","seguro auto","patente","ike mascotas","psicóloga"];
 
+// ── SUBCAT DROPDOWN CUSTOM ──────────────────────────────────────
+let _subcatOpts = []; // [{sub, esFijo}]
+
 function updateSubcats(){
   const cat = document.getElementById("f-categoria").value;
   document.getElementById("f-subcategoria").value = "";
+  document.getElementById("f-subcategoria").removeAttribute("readonly");
+  closeSubcatDrop();
 
-  // Subcats del usuario para esa cat (fijos primero, luego el resto)
   const deCfg = SUBCATS_CONFIG
     .filter(s=>s.categoria===cat)
     .sort((a,b)=> b.es_fijo - a.es_fijo || a.orden - b.orden)
-    .map(s=>s.subcategoria);
+    .map(s=>({sub:s.subcategoria, esFijo:s.es_fijo}));
 
-  // Agregar las del historial que no estén ya en la config
+  const cfgSubs = deCfg.map(x=>x.sub);
   const deHistorial = [...new Set(
     allMovs.filter(m=>m.cat===cat&&m.sub).map(m=>m.sub)
-  )].filter(s=>!deCfg.includes(s));
+  )].filter(s=>!cfgSubs.includes(s)).map(s=>({sub:s, esFijo:false}));
 
-  const todas = [...deCfg, ...deHistorial];
-  const dl = document.getElementById("subcats-list");
-  dl.innerHTML = todas.map(s=>`<option value="${s}">`).join("");
+  _subcatOpts = [...deCfg, ...deHistorial];
+  renderSubcatDrop(_subcatOpts);
 }
+
+function renderSubcatDrop(opts){
+  const dd = document.getElementById("subcat-dropdown");
+  if(!opts.length){ dd.classList.remove("open"); return; }
+  dd.innerHTML = opts.map(o=>`
+    <div class="subcat-opt" ontouchstart="" onclick="selectSubcat('${o.sub.replace(/'/g,"\\'")}')">
+      <span style="flex:1">${o.sub}</span>
+      ${o.esFijo?'<span class="subcat-opt-fijo">FIJO</span>':''}
+    </div>`).join("");
+  dd.classList.add("open");
+}
+
+function openSubcatDrop(){
+  const cat = document.getElementById("f-categoria").value;
+  if(!cat) return;
+  const q = document.getElementById("f-subcategoria").value.toLowerCase();
+  const filtered = q ? _subcatOpts.filter(o=>o.sub.toLowerCase().includes(q)) : _subcatOpts;
+  renderSubcatDrop(filtered);
+}
+
+function filterSubcats(){
+  const q = document.getElementById("f-subcategoria").value.toLowerCase();
+  const filtered = q ? _subcatOpts.filter(o=>o.sub.toLowerCase().includes(q)) : _subcatOpts;
+  renderSubcatDrop(filtered);
+}
+
+function selectSubcat(val){
+  document.getElementById("f-subcategoria").value = val;
+  closeSubcatDrop();
+}
+
+function closeSubcatDrop(){
+  document.getElementById("subcat-dropdown").classList.remove("open");
+}
+
+// Cerrar al tocar fuera
+document.addEventListener("click", e=>{
+  if(!e.target.closest(".subcat-wrap")) closeSubcatDrop();
+});
 const MNAMES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 // ── STATE ───────────────────────────────────────────────────────
