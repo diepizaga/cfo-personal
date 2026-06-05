@@ -923,10 +923,78 @@ function showAuthScreen(){
 }
 
 // ── SUBCATEGORÍAS CONFIG ─────────────────────────────────────────
+// Subcategorías default que recibe todo usuario nuevo al registrarse
+// [categoria, subcategoria, es_fijo, orden]
+const SUBCATS_DEFAULTS = [
+  ["Consumo","Carnicería",       false, 0],
+  ["Consumo","Kiosko",           false, 1],
+  ["Consumo","Panadería",        false, 2],
+  ["Consumo","Super / Almacén",  false, 3],
+  ["Consumo","Verdulería",       false, 4],
+  ["Consumo","Otros consumos",   false, 5],
+  ["Personal","Delivery",        false, 0],
+  ["Personal","Peluquería",      false, 1],
+  ["Personal","Ropa",            false, 2],
+  ["Personal","Salidas",         false, 3],
+  ["Personal","Otros personal",  false, 4],
+  ["Servicios","ABL",                true,  0],
+  ["Servicios","Cable / Flow / Internet", true, 1],
+  ["Servicios","ChatGPT",            true,  2],
+  ["Servicios","EDESUR",             true,  3],
+  ["Servicios","Expensas",           true,  4],
+  ["Servicios","HBO Max",            true,  5],
+  ["Servicios","Meli+",              true,  6],
+  ["Servicios","PedidosYa Plus",     true,  7],
+  ["Servicios","Prime Video",        true,  8],
+  ["Servicios","Spotify Premium",    true,  9],
+  ["Servicios","YouTube Premium",    true, 10],
+  ["Servicios","Otros servicios",    false, 11],
+  ["Deuda","Amex - Santander",         true, 0],
+  ["Deuda","Mastercard - BBVA",        true, 1],
+  ["Deuda","Visa - Santander",         true, 2],
+  ["Deuda","PH - Ciudad",              true, 3],
+  ["Deuda","PP - Anses",               true, 4],
+  ["Deuda","PP - Santander",           true, 5],
+  ["Deuda","Descubierto - Santander",  true, 6],
+  ["Deuda","Otras deudas",             false,7],
+  ["Transporte","Bici",            false, 0],
+  ["Transporte","Cabify / Uber",   false, 1],
+  ["Transporte","Combustible",     false, 2],
+  ["Transporte","Multas",          false, 3],
+  ["Transporte","Patente",         true,  4],
+  ["Transporte","Peajes",          false, 5],
+  ["Transporte","Seguro auto",     true,  6],
+  ["Transporte","SUBE",            false, 7],
+  ["Transporte","Otros transportes",false,8],
+  ["Salud","Farmacia",        false, 0],
+  ["Salud","GYM",             true,  1],
+  ["Salud","Psicóloga",       true,  2],
+  ["Salud","Veterinaria",     false, 3],
+  ["Salud","Otros salud",     false, 4],
+  ["Otros","Imprevistos",  false, 0],
+  ["Otros","Regalos",      false, 1],
+  ["Otros","Varios",       false, 2],
+];
+
+async function seedDefaultSubcats(){
+  const rows = SUBCATS_DEFAULTS.map(([cat,sub,fijo,orden])=>({
+    user_id: currentUser.id,
+    categoria: cat, subcategoria: sub, es_fijo: fijo, orden
+  }));
+  await sb.from("subcategorias_config").insert(rows);
+}
+
 async function cargarFijos(){
   const {data}=await sb.from("subcategorias_config").select("*").order("categoria").order("orden");
   SUBCATS_CONFIG=data||[];
-  // FIJOS_DEF: subcats marcadas como fijo → [subcategoria, categoria, subcategoria, id]
+
+  // Usuario nuevo sin subcats → sembrar defaults automáticamente
+  if(SUBCATS_CONFIG.length===0 && currentUser){
+    await seedDefaultSubcats();
+    const {data:data2}=await sb.from("subcategorias_config").select("*").order("categoria").order("orden");
+    SUBCATS_CONFIG=data2||[];
+  }
+
   FIJOS_DEF=SUBCATS_CONFIG.filter(s=>s.es_fijo).map(s=>[s.subcategoria, s.categoria, s.subcategoria, s.id]);
 }
 
