@@ -269,6 +269,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .nav-label{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;font-weight:500}
 .nav-item.active .nav-label{color:var(--green);font-weight:700}
 
+/* ── ÚLTIMOS MOVIMIENTOS ── */
+.mov-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.mov-item:last-child{border-bottom:none}
+.mov-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.mov-info{flex:1;min-width:0}
+.mov-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mov-meta{font-size:11px;color:var(--t3);margin-top:1px}
+.mov-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.mov-monto{font-size:14px;font-weight:700}
+.mov-edit-btn{font-size:11px;color:var(--t2);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:background .15s}
+.mov-edit-btn:active{background:var(--border)}
 /* ── FAB ── */
 .fab{position:fixed;bottom:80px;right:20px;width:52px;height:52px;border-radius:26px;background:var(--green);color:#fff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 16px rgba(22,163,74,0.4);display:flex;align-items:center;justify-content:center;z-index:101;transition:transform 150ms var(--ease-out),box-shadow 150ms}
 .fab:active{transform:scale(0.92);box-shadow:0 2px 8px rgba(22,163,74,0.3)}
@@ -371,6 +382,24 @@ body { background: var(--bg); }
 <div id="loading"><div class="spinner"></div><p>CARGANDO...</p></div>
 
 <!-- AUTH SCREEN -->
+<!-- RECOVERY OVERLAY: se muestra cuando el usuario llega desde el link del email -->
+<div id="recovery-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div class="auth-logo" style="font-weight:900;letter-spacing:-1.5px;font-size:34px;margin-bottom:8px">CFO <span style="color:var(--green)">Personal</span></div>
+  <div class="auth-sub">Creá tu nueva contraseña</div>
+  <div class="auth-card" style="border-radius:18px">
+    <div class="auth-field">
+      <label class="auth-label">Nueva contraseña (mín. 6 caracteres)</label>
+      <input type="password" class="auth-input" id="new-pass" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Repetir contraseña</label>
+      <input type="password" class="auth-input" id="new-pass2" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="auth-btn" style="border-radius:12px;font-weight:800" onclick="doSaveNewPassword()">Guardar nueva contraseña</button>
+    <div class="auth-error" id="recovery-error"></div>
+  </div>
+</div>
+
 <div id="auth-screen">
   <div class="auth-logo">CFO <span>Personal</span></div>
   <div class="auth-sub">Tus finanzas, bajo control</div>
@@ -392,7 +421,23 @@ body { background: var(--bg); }
       </div>
       <button type="submit" class="auth-btn">Ingresar</button>
       <div class="auth-error" id="login-error"></div>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:12px;color:var(--t2);cursor:pointer;text-decoration:underline" onclick="showForgotForm()">¿Olvidaste tu contraseña?</span>
+      </div>
     </form>
+    <!-- FORGOT PASSWORD FORM -->
+    <div id="form-forgot" style="display:none">
+      <div style="font-size:13px;color:var(--t2);margin-bottom:18px;text-align:center">Te mandamos un link a tu email para que puedas crear una nueva contraseña.</div>
+      <div class="auth-field">
+        <label class="auth-label">Email</label>
+        <input type="email" class="auth-input" id="forgot-email" placeholder="tu@email.com" autocomplete="email" inputmode="email">
+      </div>
+      <button class="auth-btn" onclick="doForgot()">Enviar link de recuperación</button>
+      <div class="auth-error" id="forgot-error"></div>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:12px;color:var(--t2);cursor:pointer;text-decoration:underline" onclick="switchAuthTab('login')">← Volver al login</span>
+      </div>
+    </div>
     <div id="form-register" style="display:none">
       <div class="auth-field">
         <label class="auth-label">Email</label>
@@ -546,6 +591,8 @@ body { background: var(--bg); }
 
   <!-- ── GASTOS ── -->
   <div class="tab-pane" id="pane-1">
+    <div class="section-label">Últimos movimientos</div>
+    <div class="card" id="ultimos-movs" style="padding:0;overflow:hidden"></div>
     <div class="section-label">Top 3 gastos caja</div>
     <div class="card" id="top-gastos"></div>
     <div class="card"><div class="card-title">Gasto variable por categoría</div><div class="chart-wrap" style="height:220px"><canvas id="chart-cat"></canvas></div></div>
@@ -864,6 +911,71 @@ function switchAuthTab(tab){
   document.getElementById("tab-register").classList.toggle("active", tab==="register");
   document.getElementById("form-login").style.display = tab==="login"?"block":"none";
   document.getElementById("form-register").style.display = tab==="register"?"block":"none";
+  document.getElementById("form-forgot").style.display = "none";
+}
+
+function showForgotForm(){
+  document.getElementById("form-login").style.display="none";
+  document.getElementById("form-register").style.display="none";
+  document.getElementById("form-forgot").style.display="block";
+  document.getElementById("tab-login").classList.remove("active");
+  document.getElementById("tab-register").classList.remove("active");
+  document.getElementById("forgot-error").textContent="";
+  document.getElementById("forgot-email").value="";
+}
+
+async function doForgot(){
+  const email=document.getElementById("forgot-email").value.trim();
+  const errEl=document.getElementById("forgot-error");
+  errEl.style.color="var(--red)"; errEl.textContent="";
+  if(!email){errEl.textContent="Ingresá tu email";return;}
+  const btn=document.querySelector("#form-forgot .auth-btn");
+  btn.disabled=true; btn.textContent="Enviando...";
+  const {error}=await sb.auth.resetPasswordForEmail(email,{
+    redirectTo: window.location.origin+window.location.pathname
+  });
+  btn.disabled=false; btn.textContent="Enviar link de recuperación";
+  if(error){errEl.textContent=error.message;}
+  else{errEl.style.color="var(--green)";errEl.textContent="✓ Te mandamos el link. Revisá tu email (también en spam).";}
+}
+
+// Detecta si el usuario viene desde un link de recuperación de contraseña
+let recoveryToken=null;
+function checkRecoveryHash(){
+  const hash=window.location.hash.replace("#","");
+  const params=new URLSearchParams(hash);
+  if(params.get("type")==="recovery"){
+    recoveryToken=params.get("access_token");
+    history.replaceState(null,"",window.location.pathname);
+    document.getElementById("recovery-overlay").style.display="flex";
+    document.getElementById("auth-screen").style.display="none";
+  }
+}
+
+async function doSaveNewPassword(){
+  const p1=document.getElementById("new-pass").value;
+  const p2=document.getElementById("new-pass2").value;
+  const errEl=document.getElementById("recovery-error");
+  errEl.style.color="var(--red)"; errEl.textContent="";
+  if(p1.length<6){errEl.textContent="La contraseña debe tener al menos 6 caracteres";return;}
+  if(p1!==p2){errEl.textContent="Las contraseñas no coinciden";return;}
+  const btn=document.querySelector("#recovery-overlay .auth-btn");
+  btn.disabled=true; btn.textContent="Guardando...";
+  const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6dW1xaHJwaWV4Z2t1dHliY3JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MDc1ODcsImV4cCI6MjA5NjA4MzU4N30.GA-MNEz5R-dO3OPVyqQSBkGSGKlF1azd7FdqTjM1goY";
+  const resp=await fetch("https://fzumqhrpiexgkutybcrc.supabase.co/auth/v1/user",{
+    method:"PUT",
+    headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+recoveryToken},
+    body:JSON.stringify({password:p1})
+  });
+  const data=await resp.json();
+  btn.disabled=false; btn.textContent="Guardar nueva contraseña";
+  if(!resp.ok){errEl.textContent="Error al guardar. Pedí un nuevo link.";return;}
+  errEl.style.color="var(--green)"; errEl.textContent="✓ ¡Contraseña actualizada! Ingresá con tu nueva contraseña.";
+  setTimeout(()=>{
+    document.getElementById("recovery-overlay").style.display="none";
+    document.getElementById("auth-screen").style.display="";
+    switchAuthTab("login");
+  },2000);
 }
 
 async function doLogin(){
@@ -1202,7 +1314,7 @@ function renderMesList(){
 }
 
 // ── RENDER ALL ──────────────────────────────────────────────────
-function renderAll(){renderInicio();renderGastos();renderTarjeta();renderHistorial();renderIngresos();}
+function renderAll(){renderInicio();renderUltimosMovs();renderGastos();renderTarjeta();renderHistorial();renderIngresos();}
 
 // ── INICIO ──────────────────────────────────────────────────────
 function renderInicio(){
@@ -1462,6 +1574,81 @@ function renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,
   il.innerHTML=insights.length===0?'<div class="empty">Sin insights para este mes</div>':insights.map(i=>`<div class="insight-item"><div class="insight-icon">${i.icon}</div><div class="insight-text">${i.text}</div></div>`).join("");
 }
 
+// ── ÚLTIMOS MOVIMIENTOS ─────────────────────────────────────────
+function renderUltimosMovs(){
+  const el=document.getElementById("ultimos-movs");
+  if(!el) return;
+  // Los últimos 5 de TODOS los meses, ordenados por fecha desc
+  const ultimos=[...allMovs].sort((a,b)=>b.fecha-a.fecha).slice(0,5);
+  if(ultimos.length===0){el.innerHTML='<div class="empty" style="padding:16px">Sin movimientos aún</div>';return;}
+  const iconos={Gasto:"💸",Ingreso:"💰",Ahorro:"🐷"};
+  const colores={Gasto:"var(--red)",Ingreso:"var(--green)",Ahorro:"#3B82F6"};
+  el.innerHTML=ultimos.map(m=>{
+    const fechaStr=m.fecha?`${m.fecha.getDate()}/${String(m.fecha.getMonth()+1).padStart(2,"0")}/${m.fecha.getFullYear()}`:"";
+    const titulo=m.sub||m.cat||m.ingTipo||m.tipo;
+    const meta=[m.cat&&m.sub?m.cat:null,fechaStr,m.detalle].filter(Boolean).join(" · ");
+    const color=colores[m.tipo]||"var(--t2)";
+    const signo=m.tipo==="Ingreso"?"+":m.tipo==="Ahorro"?"":"−";
+    return `<div class="mov-item">
+      <div class="mov-icon" style="background:${color}18">${iconos[m.tipo]||"📋"}</div>
+      <div class="mov-info">
+        <div class="mov-title">${titulo}</div>
+        <div class="mov-meta">${meta}</div>
+      </div>
+      <div class="mov-right">
+        <div class="mov-monto" style="color:${color}">${signo}${fmt(m.monto)}</div>
+        <button class="mov-edit-btn" onclick="editMovimiento('${m.id}')">✏️ Editar</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// Variable para saber si estamos editando
+let editingMovId=null;
+
+function editMovimiento(id){
+  const m=allMovs.find(x=>x.id===id);
+  if(!m) return;
+  editingMovId=id;
+  // Abrir modal
+  const overlay=document.getElementById("modal-overlay");
+  overlay.classList.add("open");
+  document.querySelector(".modal-title").textContent="Editar movimiento";
+  document.getElementById("submit-btn").textContent="Guardar cambios";
+  document.getElementById("modal-error").textContent="";
+  // Setear tipo
+  setTipo(m.tipo);
+  // Fecha
+  if(m.fecha){
+    const f=m.fecha;
+    document.getElementById("f-fecha").value=`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}-${String(f.getDate()).padStart(2,"0")}`;
+  }
+  // Monto
+  document.getElementById("f-monto").value=String(m.monto).replace(".",",");
+  // Campos por tipo
+  if(m.tipo==="Gasto"){
+    document.getElementById("f-categoria").value=m.cat||"";
+    updateSubcats();
+    document.getElementById("f-subcategoria").value=m.sub||"";
+    document.getElementById("f-medio").value=m.medio||"Cuenta / Billetera";
+    updateCuotasVis();
+    if(m.medio==="Crédito"){
+      document.getElementById("f-tarjeta").value=m.tarjeta||"VISA";
+      document.getElementById("f-cuotas").value=m.cuotas||1;
+    }
+  } else if(m.tipo==="Ingreso"){
+    document.getElementById("f-ing-tipo").value=m.ingTipo||"Sueldo";
+  }
+  document.getElementById("f-detalle").value=m.detalle||"";
+}
+
+function closeModal(){
+  document.getElementById("modal-overlay").classList.remove("open");
+  document.querySelector(".modal-title").textContent="Nuevo movimiento";
+  document.getElementById("submit-btn").textContent="Guardar movimiento";
+  editingMovId=null;
+}
+
 // ── GASTOS ──────────────────────────────────────────────────────
 function renderGastos(){
   const movsMes=allMovs.filter(m=>m.mes===mesSel&&m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera");
@@ -1593,6 +1780,9 @@ function goTab(i){
 let modalTipo="Gasto";
 
 function openModal(){
+  editingMovId=null;
+  document.querySelector(".modal-title").textContent="Nuevo movimiento";
+  document.getElementById("submit-btn").textContent="Guardar movimiento";
   const overlay=document.getElementById("modal-overlay");
   overlay.classList.add("open");
   // Fecha por defecto = hoy
@@ -1606,7 +1796,6 @@ function openModal(){
   setTipo("Gasto");
 }
 
-function closeModal(){document.getElementById("modal-overlay").classList.remove("open");}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modal-overlay"))closeModal();}
 
 function setTipo(tipo){
@@ -1677,8 +1866,15 @@ async function guardarMovimiento(){
     monto,
   };
 
-  const {error}=await sb.from("movimientos").insert(record);
-  btn.disabled=false;btn.textContent="Guardar movimiento";
+  let error;
+  if(editingMovId){
+    // Modo edición — no actualizar user_id
+    const {id:_id,user_id:_uid,...updateFields}=record;
+    ({error}=await sb.from("movimientos").update(updateFields).eq("id",editingMovId));
+  } else {
+    ({error}=await sb.from("movimientos").insert(record));
+  }
+  btn.disabled=false; btn.textContent=editingMovId?"Guardar cambios":"Guardar movimiento";
   if(error){errEl.textContent="Error al guardar: "+error.message;return;}
   closeModal();
   await syncData();
@@ -1689,6 +1885,9 @@ sb.auth.onAuthStateChange((event,session)=>{
   if(session?.user) showApp(session.user);
   else showAuthScreen();
 });
+
+// Detectar recuperación de contraseña desde link de email
+checkRecoveryHash();
 
 // Enter key en register (el login ya tiene form submit)
 document.getElementById("reg-pass").addEventListener("keydown",e=>{if(e.key==="Enter")doRegister();});
