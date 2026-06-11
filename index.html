@@ -1579,7 +1579,7 @@ function renderUltimosMovs(){
   const el=document.getElementById("ultimos-movs");
   if(!el) return;
   // Los últimos 5 de TODOS los meses, ordenados por fecha desc
-  const ultimos=[...allMovs].sort((a,b)=>b.fecha-a.fecha).slice(0,5);
+  const ultimos=[...allMovs].sort((a,b)=>b.fecha-a.fecha).slice(0,10);
   if(ultimos.length===0){el.innerHTML='<div class="empty" style="padding:16px">Sin movimientos aún</div>';return;}
   const iconos={Gasto:"💸",Ingreso:"💰",Ahorro:"🐷"};
   const colores={Gasto:"var(--red)",Ingreso:"var(--green)",Ahorro:"#3B82F6"};
@@ -1597,10 +1597,20 @@ function renderUltimosMovs(){
       </div>
       <div class="mov-right">
         <div class="mov-monto" style="color:${color}">${signo}${fmt(m.monto)}</div>
-        <button class="mov-edit-btn" onclick="editMovimiento('${m.id}')">✏️ Editar</button>
+        <div style="display:flex;gap:4px">
+          <button class="mov-edit-btn" onclick="editMovimiento('${m.id}')">✏️ Editar</button>
+          <button class="mov-edit-btn" style="color:var(--red);border-color:var(--red-border)" onclick="eliminarMovimiento('${m.id}','${titulo.replace(/'/g,"\\'").replace(/`/g,"\\`")}')">🗑️</button>
+        </div>
       </div>
     </div>`;
   }).join("");
+}
+
+async function eliminarMovimiento(id, titulo){
+  if(!confirm(`¿Eliminás "${titulo}"? Esta acción no se puede deshacer.`)) return;
+  const {error}=await sb.from("movimientos").delete().eq("id",id);
+  if(error){alert("Error al eliminar: "+error.message);return;}
+  await syncData();
 }
 
 // Variable para saber si estamos editando
