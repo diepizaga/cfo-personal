@@ -399,6 +399,17 @@ body { background: var(--bg); }
 #toast.success{background:var(--green-btn);color:#fff}
 #toast.error{background:#8C3B2E;color:#fff}
 
+/* ── PREMIUM — score, escenarios, objetivo, horizonte ── */
+.score-wrap{position:relative;width:84px;height:84px;flex-shrink:0}
+.score-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',Georgia,serif;font-size:27px;font-weight:600;font-variant-numeric:tabular-nums}
+.esc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.esc-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.esc-val{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.lib-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.lib-row:last-child{border-bottom:none}
+.obj-btn{width:100%;height:44px;background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);border-radius:12px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:transform 120ms var(--ease-out)}
+.obj-btn:active{transform:scale(0.98)}
+
 /* ── MODO CAFÉ — dark mode cálido automático ── */
 @media (prefers-color-scheme: dark){
   :root{
@@ -551,6 +562,25 @@ body { background: var(--bg); }
       </div>
     </div>
 
+    <!-- ═══ TU CFO DICE: score + narrativa + escenarios ═══ -->
+    <div class="card" id="cfo-dice" style="display:none">
+      <div style="display:flex;gap:16px;align-items:center">
+        <div class="score-wrap">
+          <svg width="84" height="84" viewBox="0 0 84 84">
+            <circle cx="42" cy="42" r="36" fill="none" stroke="var(--border)" stroke-width="7"/>
+            <circle id="score-arc" cx="42" cy="42" r="36" fill="none" stroke="var(--green)" stroke-width="7" stroke-linecap="round" stroke-dasharray="226.19" stroke-dashoffset="226.19" transform="rotate(-90 42 42)" style="transition:stroke-dashoffset 600ms var(--ease-out)"/>
+          </svg>
+          <div class="score-num" id="score-num">—</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="card-title" style="margin-bottom:4px">Tu CFO dice</div>
+          <div id="score-label" style="font-size:13px;font-weight:700;margin-bottom:6px">—</div>
+          <div id="cfo-narrativa" style="font-size:13px;color:var(--t2);line-height:1.55">—</div>
+        </div>
+      </div>
+      <div id="cfo-escenarios" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"></div>
+    </div>
+
     <!-- ═══ TARJETA 2: RITMO DE GASTO ═══ -->
     <div class="ritmo-card ok" id="ritmo-card">
       <div class="ritmo-title ok" id="ritmo-estado">—</div>
@@ -626,6 +656,8 @@ body { background: var(--bg); }
     <div class="section-label">Compromisos del mes</div>
     <div class="info-note" id="fijos-note"></div>
     <div class="card" id="fijos-list"></div>
+    <div class="section-label">Objetivo de ahorro</div>
+    <div class="card" id="objetivo-card"></div>
     <div class="section-label">Insights del mes</div>
     <div class="card" id="insights-list"></div>
   </div>
@@ -668,6 +700,8 @@ body { background: var(--bg); }
     </div>
     <div class="section-label">Cuotas en curso</div>
     <div id="lista-cuotas"></div>
+    <div class="section-label">Cuándo se libera tu tarjeta</div>
+    <div class="card" id="tc-horizonte"></div>
   </div>
 
   <!-- ── HISTORIAL ── -->
@@ -840,6 +874,37 @@ body { background: var(--bg); }
   </div>
 </div>
 
+<!-- MODAL OBJETIVO DE AHORRO -->
+<div class="modal-overlay" id="objetivo-overlay" onclick="closeObjetivoOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Objetivo de ahorro</div>
+      <button class="modal-close" onclick="closeObjetivo()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">¿Cuánto querés juntar?</label>
+      <input type="text" inputmode="decimal" class="form-input" id="obj-monto" placeholder="500.000" oninput="previewObjetivo()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">¿En cuánto tiempo?</label>
+      <select class="form-select" id="obj-plazo" onchange="previewObjetivo()">
+        <option value="1">1 mes</option>
+        <option value="2">2 meses</option>
+        <option value="3" selected>3 meses</option>
+        <option value="6">6 meses</option>
+        <option value="9">9 meses</option>
+        <option value="12">1 año</option>
+        <option value="18">18 meses</option>
+        <option value="24">2 años</option>
+      </select>
+    </div>
+    <div id="obj-preview" style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.5;min-height:18px"></div>
+    <button class="submit-btn" onclick="guardarObjetivo()">Guardar objetivo</button>
+    <button id="obj-delete" style="display:none;width:100%;height:44px;margin-top:10px;background:none;border:1px solid var(--red-border);color:var(--red);border-radius:14px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer" onclick="eliminarObjetivo()">Eliminar objetivo</button>
+    <div class="auth-error" id="obj-error"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -865,7 +930,7 @@ const sb = createClient(
 
 // ── CONFIG: CIERRE TC ───────────────────────────────────────────
 function getCierreDia(){ return parseInt(localStorage.getItem("cierre_tc_dia")||"20",10); }
-function setCierreDia(d){ localStorage.setItem("cierre_tc_dia", d); CIERRE_TC_DIA = d; }
+function setCierreDia(d){ localStorage.setItem("cierre_tc_dia", d); CIERRE_TC_DIA = d; guardarConfigRemota({cierre_tc_dia:d}); }
 let CIERRE_TC_DIA = getCierreDia();
 
 function guardarCierre(){
@@ -897,7 +962,7 @@ const COLORS = ["#16A34A","#E29A3C","#C0573A","#6B7280","#0F766E","#7C3AED","#1D
 
 // Subcategorías que son "fijos opcionales" — el CFO las usa para sugerir recortes
 // Se determina dinámicamente: fijos que NO son deuda, expensas, servicios básicos
-const SUBS_INEVITABLES = ["expensas","edesur","abl","ph - ciudad","pp - santander","pp - anses","descubierto - santander","women - santander","seguro auto","patente","ike mascotas","psicóloga"];
+const SUBS_INEVITABLES = ["expensas","edesur","abl","ph - ciudad","pp - santander","pp - anses","descubierto - santander","women - santander","seguro auto","patente","ike mascotas","psicóloga","visa - santander","amex - santander","mastercard - bbva"];
 
 // ── SUBCAT DROPDOWN CUSTOM ──────────────────────────────────────
 let _subcatOpts = []; // [{sub, esFijo}]
@@ -1258,12 +1323,51 @@ async function agregarFijo(){
   renderAll();
 }
 
+// ── CONFIG REMOTA (tabla config_usuario) ────────────────────────
+// Sincroniza día de cierre TC y objetivo de ahorro entre dispositivos.
+// Si la tabla aún no existe en Supabase, la app sigue funcionando con localStorage.
+async function cargarConfig(){
+  if(!currentUser)return;
+  try{
+    const {data,error}=await sb.from("config_usuario").select("*").maybeSingle();
+    if(error){console.warn("config_usuario:",error.message);return;}
+    if(data){
+      if(data.cierre_tc_dia){CIERRE_TC_DIA=data.cierre_tc_dia;localStorage.setItem("cierre_tc_dia",data.cierre_tc_dia);}
+      if(data.objetivo_monto&&parseFloat(data.objetivo_monto)>0){
+        localStorage.setItem("objetivo_ahorro",JSON.stringify({monto:parseFloat(data.objetivo_monto),plazo:data.objetivo_plazo,mesInicio:data.objetivo_mes_inicio,mesFin:data.objetivo_mes_fin}));
+      } else {
+        localStorage.removeItem("objetivo_ahorro");
+      }
+    } else {
+      // Primera vez: migrar lo guardado en este dispositivo a Supabase
+      const o=getObjetivo();
+      await sb.from("config_usuario").upsert({
+        user_id:currentUser.id,
+        cierre_tc_dia:getCierreDia(),
+        objetivo_monto:o?o.monto:null,
+        objetivo_plazo:o?o.plazo:null,
+        objetivo_mes_inicio:o?o.mesInicio:null,
+        objetivo_mes_fin:o?o.mesFin:null
+      });
+    }
+  }catch(e){console.warn("config_usuario:",e);}
+  initCierreUI();
+}
+async function guardarConfigRemota(parcial){
+  if(!currentUser)return;
+  try{
+    const {error}=await sb.from("config_usuario").upsert(Object.assign({user_id:currentUser.id,updated_at:new Date().toISOString()},parcial));
+    if(error)console.warn("config_usuario:",error.message);
+  }catch(e){console.warn("config_usuario:",e);}
+}
+
 // ── SYNC ────────────────────────────────────────────────────────
 async function syncData(){
   const dot=document.getElementById("sync-dot"),lbl=document.getElementById("sync-lbl");
   dot.classList.add("syncing"); lbl.textContent="Actualizando...";
   try{
     await cargarFijos();
+    await cargarConfig();
     // Supabase devuelve máx. 1000 filas por consulta — paginar para no perder movimientos antiguos
     let data=[],_from=0;const PAGE=1000;
     while(true){
@@ -1595,6 +1699,8 @@ function renderInicio(){
 
   // salud-card ya no existe en el DOM — el badge está en card-estado (manejado arriba)
 
+  renderCFO({ingresos,usoAhorro:usoAhorroMes,movInterno:movInternoMes,totalFijos,gastosLibres,ahorrado:ahorradoMes,libre,pctGasto,pctMes,esActual,diasTranscurridos,diasMes});
+  renderObjetivo();
   renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,pctMes,usoAhorro,depAhorro);
 }
 
@@ -1602,6 +1708,9 @@ function renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,
   const il=document.getElementById("insights-list");
   if(!ingresos&&!usoAhorro){il.innerHTML='<div class="empty">Registrá tu ingreso para ver insights</div>';return;}
   const insights=[];
+  getAnomalias(mesSel).slice(0,2).forEach(a=>{
+    insights.push({icon:"⚡",text:`<strong>${esc(a.nombre)}</strong> vino ${a.ratio>=1.95?(Math.round(a.ratio*10)/10)+"x":"+"+Math.round((a.ratio-1)*100)+"% sobre"} tu promedio: <strong>${fmt(a.monto)}</strong> (habitual ${fmt(Math.round(a.avg))})`,prioridad:0});
+  });
   const idxMes=mesList.indexOf(mesSel);
   const hoy=new Date();
   const [mesY,mesM]=mesSel.split("-").map(Number);
@@ -1818,6 +1927,7 @@ function renderTarjeta(){
   document.getElementById("tc-bar-pct").textContent=pctTC+"%";document.getElementById("tc-bar-pct").style.color=barColorTC;
   document.getElementById("tc-bar-fill").style.cssText=`width:${pctTC}%;background:${barColorTC}`;
   document.getElementById("tc-bar-sub").textContent=`${fmt(prevision)} de ${fmt(LIMITE_TC)} límite · cuotas activas: ${fmt(totalCuotas)}`;
+  renderTCHorizonte();
   const lc=document.getElementById("lista-cuotas");
   if(!activas.length){lc.innerHTML='<div class="empty" style="padding:24px;line-height:1.6">✓ Sin cuotas activas este mes</div>';return;}
   lc.innerHTML=activas.map(c=>{const tot=mesEntre(c.ini,c.fin);const pas=mesEntre(c.ini,mesSel);const rest=tot-pas;const p=Math.round(pas/tot*100);return`<div class="cuota-card"><div class="cuota-top"><div><div class="cuota-name">${esc(c.sub)}${c.detalle?" · "+esc(c.detalle):""}</div><div class="cuota-meta">${c.tarjeta||"VISA"} · hasta ${c.fin} · ${rest} cuotas restantes</div></div><div class="cuota-amt">${fmt(c.montoCuota)}/mes</div></div><div class="cuota-prog-lbl"><span>${pas}/${tot} pagadas</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%;background:var(--green)"></div></div></div>`;}).join("");
@@ -1884,6 +1994,241 @@ function renderIngresos(){
   if(ingData.length>0){charts.ing=new Chart(ctxI,{type:"bar",data:{labels:ingData.map(d=>mesLabel(d.m).split(" ")[0]),datasets:[{label:"Ingresos reales",data:ingData.map(d=>d.real),backgroundColor:"rgba(22,163,74,0.7)",borderRadius:6},{label:"Uso de ahorro",data:ingData.map(d=>d.ahorro),backgroundColor:"rgba(192,87,57,0.6)",borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:TH.tick,font:{family:"Inter",size:9}},grid:{display:false}},y:{ticks:{color:TH.tick,font:{family:"Inter",size:9},callback:v=>fmtEje(v)},grid:{color:TH.grid}}},plugins:{legend:{labels:{color:TH.legend,font:{family:"Inter",size:10}}},tooltip:{callbacks:{label:c=>" "+fmt(c.parsed.y)}}}}});}
 }
 
+// ── PREMIUM: helpers ────────────────────────────────────────────
+function mesAdd(m,delta){const p=m.split("-").map(Number);const d=new Date(p[0],p[1]-1+delta,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}
+function mesHoyStr(){const h=new Date();return `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,"0")}`;}
+
+// ── PREMIUM: detección de anomalías en fijos ───────────────────
+function getAnomalias(mes){
+  const out=[];
+  FIJOS_DEF.forEach(d=>{
+    const cat=d[1],sub=d[2],nombre=d[0];
+    const pagado=allMovs.filter(m=>m.mes===mes&&m.tipo==="Gasto"&&m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase()).reduce((a,b)=>a+b.monto,0);
+    if(pagado<=0)return;
+    const prev=[];
+    for(let i=mesList.indexOf(mes)-1;i>=0&&prev.length<6;i--){
+      const v=allMovs.filter(m=>m.mes===mesList[i]&&m.tipo==="Gasto"&&m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase()).reduce((a,b)=>a+b.monto,0);
+      if(v>0)prev.push(v);
+    }
+    if(prev.length<2)return;
+    const avg=prev.reduce((a,b)=>a+b,0)/prev.length;
+    if(avg>0&&pagado>=avg*1.5&&(pagado-avg)>=5000)out.push({nombre,monto:pagado,avg,ratio:pagado/avg});
+  });
+  return out.sort((a,b)=>b.ratio-a.ratio);
+}
+
+// ── PREMIUM: score de salud financiera (0-100) ─────────────────
+function calcScore(p){
+  let s=0;
+  const pctF=p.ingresos>0?p.totalFijos/p.ingresos*100:100;
+  s+=pctF<=40?25:pctF>=85?0:Math.round(25*(85-pctF)/45);
+  const gastoTotal=p.totalFijos+p.gastosLibres;
+  const dep=gastoTotal>0?p.usoAhorro/gastoTotal*100:0;
+  s+=dep<=0?25:dep>=30?0:Math.round(25*(30-dep)/30);
+  if(!p.ingresos)s+=10;
+  else{const d=p.pctGasto-p.pctMes;s+=d<=0?25:d>=25?0:Math.round(25*(25-d)/25);}
+  if(p.trendPct===null)s+=15;
+  else s+=p.trendPct<=0?25:p.trendPct>=30?0:Math.round(25*(30-p.trendPct)/30);
+  return Math.max(0,Math.min(100,s));
+}
+
+// ── PREMIUM: card "Tu CFO dice" ─────────────────────────────────
+function renderCFO(p){
+  const card=document.getElementById("cfo-dice");
+  if(!card)return;
+  if(!(p.ingresos>0||p.usoAhorro>0||p.gastosLibres>0||p.totalFijos>0)){card.style.display="none";return;}
+  card.style.display="";
+
+  let trendPct=null;
+  const prevMeses=mesList.filter(m=>m<mesSel).slice(-3);
+  const rates=prevMeses.map(m=>{
+    const tot=allMovs.filter(mv=>mv.mes===m&&mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
+    const q=m.split("-").map(Number);
+    return tot/new Date(q[0],q[1],0).getDate();
+  }).filter(r=>r>0);
+  if(rates.length&&p.diasTranscurridos>0){
+    const avgRate=rates.reduce((a,b)=>a+b,0)/rates.length;
+    if(avgRate>0)trendPct=(p.gastosLibres/p.diasTranscurridos-avgRate)/avgRate*100;
+  }
+
+  const score=calcScore({ingresos:p.ingresos,usoAhorro:p.usoAhorro,totalFijos:p.totalFijos,gastosLibres:p.gastosLibres,pctGasto:p.pctGasto,pctMes:p.pctMes,trendPct});
+  const C=226.19;
+  const scolor=score>=70?"var(--green)":score>=45?"var(--yellow)":"var(--red)";
+  const arc=document.getElementById("score-arc");
+  arc.style.stroke=scolor;
+  arc.style.strokeDashoffset=String(C*(1-score/100));
+  const numEl=document.getElementById("score-num");
+  numEl.textContent=score;numEl.style.color=scolor;
+  const lblEl=document.getElementById("score-label");
+  lblEl.textContent=score>=70?"Mes sólido":score>=45?"Mes para mirar de cerca":"Mes frágil";
+  lblEl.style.color=scolor;
+
+  const anomalia=getAnomalias(mesSel)[0]||null;
+  const fr=[];
+  if(!p.ingresos&&p.usoAhorro>0)fr.push("No registraste ingresos este mes y estás cubriendo todo con tu ahorro.");
+  else if(!p.ingresos)fr.push("Todavía no registraste ingresos este mes.");
+  else{
+    const pctF=pct(p.totalFijos,p.ingresos);
+    fr.push(`Los fijos se llevan el ${pctF}% de tu ingreso${pctF>65?" — vienen pesados":""}.`);
+  }
+  if(anomalia)fr.push(`Ojo con <strong>${esc(anomalia.nombre)}</strong>: ${fmt(anomalia.monto)} contra ${fmt(Math.round(anomalia.avg))} habitual.`);
+  if(p.esActual&&p.ingresos>0&&p.diasTranscurridos>=5){
+    const ritmo=p.gastosLibres/p.diasTranscurridos;
+    const proy=p.ingresos+p.usoAhorro+p.movInterno-p.totalFijos-(p.gastosLibres+ritmo*(p.diasMes-p.diasTranscurridos))-p.ahorrado;
+    fr.push(proy>=0?`Si mantenés este ritmo, cerrás el mes con <strong style="color:var(--green)">~${fmt(Math.round(proy))}</strong>.`:`Al ritmo actual cerrarías con <strong style="color:var(--red)">~${fmt(Math.round(proy))}</strong> — conviene frenar un poco.`);
+  } else if(!p.esActual){
+    fr.push(p.libre>=0?`El mes cerró con <strong style="color:var(--green)">${fmt(p.libre)}</strong> a favor.`:`El mes cerró <strong style="color:var(--red)">${fmt(p.libre)}</strong> abajo.`);
+  }
+  document.getElementById("cfo-narrativa").innerHTML=fr.join(" ");
+
+  const escEl=document.getElementById("cfo-escenarios");
+  if(p.esActual&&p.ingresos>0&&p.diasTranscurridos>=5&&p.diasMes>p.diasTranscurridos){
+    const ritmo=p.gastosLibres/p.diasTranscurridos,rest=p.diasMes-p.diasTranscurridos;
+    const proy=f=>p.ingresos+p.usoAhorro+p.movInterno-p.totalFijos-(p.gastosLibres+ritmo*f*rest)-p.ahorrado;
+    const esc3=[["Si seguís así",proy(1)],["Ajustando 15%",proy(0.85)],["Mes difícil",proy(1.15)]];
+    escEl.style.display="";
+    escEl.innerHTML='<div class="esc-grid">'+esc3.map(e=>`<div><div class="esc-lbl">${e[0]}</div><div class="esc-val" style="color:${e[1]>=0?"var(--green)":"var(--red)"}">${fmt(Math.round(e[1]))}</div></div>`).join("")+"</div>";
+  }else{escEl.style.display="none";}
+}
+
+// ── PREMIUM: objetivo de ahorro (guardado en este dispositivo) ──
+function getObjetivo(){try{const o=JSON.parse(localStorage.getItem("objetivo_ahorro"));return o&&o.monto>0?o:null;}catch(e){return null;}}
+function netAhorroMes(m){
+  const movs=allMovs.filter(x=>x.mes===m);
+  return movs.filter(x=>x.esAhorroEgreso).reduce((a,b)=>a+b.monto,0)-movs.filter(x=>x.tipo==="Ingreso"&&x.esAhorro).reduce((a,b)=>a+b.monto,0);
+}
+function capacidadAhorro(){
+  const cerrados=mesList.filter(m=>m<mesHoyStr()).slice(-3);
+  if(!cerrados.length)return null;
+  const vals=cerrados.map(m=>{
+    const movs=allMovs.filter(mv=>mv.mes===m);
+    const ing=movs.filter(mv=>mv.tipo==="Ingreso"&&!mv.esAhorro&&!mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
+    const usoAh=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esAhorro).reduce((a,b)=>a+b.monto,0);
+    const movInt=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
+    const gasLib=movs.filter(mv=>mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
+    const tf=getFijosParaMes(m).reduce((a,f)=>a+f.monto,0);
+    return ing+usoAh+movInt-tf-gasLib;
+  });
+  return vals.reduce((a,b)=>a+b,0)/vals.length;
+}
+function sugerenciasAjuste(){
+  const mh=mesHoyStr();
+  const movs=allMovs.filter(m=>m.mes===mh&&m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)&&m.monto>0);
+  const map={};movs.forEach(m=>{if(m.sub)map[m.sub]=(map[m.sub]||0)+m.monto;});
+  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if(!top.length)return"";
+  const partes=top.map(t=>`${esc(t[0])} (−20% ≈ ${fmt(Math.round(t[1]*0.2))})`);
+  if(SUBCATS_CONFIG.some(s=>s.es_fijo&&!SUBS_INEVITABLES.includes(s.subcategoria.toLowerCase())))partes.push("revisar suscripciones opcionales");
+  return `<div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.7"><strong style="color:var(--text)">Dónde ajustar:</strong> ${partes.join(" · ")}</div>`;
+}
+function renderObjetivo(){
+  const el=document.getElementById("objetivo-card");
+  if(!el)return;
+  const cap=capacidadAhorro();
+  const o=getObjetivo();
+  const mh=mesHoyStr();
+  if(!o){
+    const cerr=mesList.filter(m=>m<mh).slice(-3);
+    const ingProm=cerr.length?cerr.map(m=>allMovs.filter(mv=>mv.mes===m&&mv.tipo==="Ingreso"&&!mv.esAhorro&&!mv.esMovInterno).reduce((a,b)=>a+b.monto,0)).reduce((a,b)=>a+b,0)/cerr.length:0;
+    el.innerHTML=`
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:12px">
+        ${cap!==null?`Según tus últimos meses, podés ahorrar hasta <strong style="color:var(--text)">${fmt(Math.round(cap))}/mes</strong> sin ajustar nada.`:"Cargá un par de meses de datos y te digo cuánto podés ahorrar sin esfuerzo."}
+        ${ingProm>0?` La regla clásica sugiere guardar entre <strong style="color:var(--text)">${fmt(Math.round(ingProm*0.1))}</strong> y <strong style="color:var(--text)">${fmt(Math.round(ingProm*0.2))}</strong> por mes (10–20% del ingreso).`:""}
+      </div>
+      <button class="obj-btn" onclick="openObjetivo()">🎯 Crear objetivo de ahorro</button>`;
+    return;
+  }
+  const meses=[];let m=o.mesInicio;while(m<=o.mesFin){meses.push(m);m=mesAdd(m,1);}
+  const transcurridos=meses.filter(x=>x<=mh);
+  const acumulado=transcurridos.reduce((a,x)=>a+netAhorroMes(x),0);
+  const p=Math.max(0,Math.min(100,Math.round(acumulado/o.monto*100)));
+  const restantes=meses.filter(x=>x>=mh).length;
+  const vencido=mh>o.mesFin;
+  const logrado=acumulado>=o.monto;
+  const necesario=restantes>0?Math.max(0,o.monto-acumulado)/restantes:0;
+  let estadoHtml="";
+  if(logrado)estadoHtml=`<div class="alert ok" style="margin:12px 0 0">🎉 ¡Objetivo cumplido! Juntaste ${fmt(acumulado)}.</div>`;
+  else if(vencido)estadoHtml=`<div class="alert warn" style="margin:12px 0 0">El plazo terminó: juntaste ${fmt(Math.max(0,acumulado))} de ${fmt(o.monto)}. Tocá editar para armar uno nuevo.</div>`;
+  else{
+    const ok=cap===null||necesario<=cap;
+    estadoHtml=ok
+      ?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:12px">✓ Vas bien: necesitás ${fmt(Math.round(necesario))}/mes${cap!==null?` y tu capacidad es ${fmt(Math.round(cap))}/mes`:""}</div>`
+      :`<div style="font-size:12px;color:var(--yellow);font-weight:600;margin-top:12px">Necesitás ${fmt(Math.round(necesario))}/mes — ${fmt(Math.round(necesario-cap))} por encima de tu capacidad</div>${sugerenciasAjuste()}`;
+  }
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+      <div style="font-size:14px;font-weight:700;color:var(--text)">Juntar ${fmt(o.monto)}</div>
+      <button class="cfg-link" style="margin:0" onclick="openObjetivo()">editar</button>
+    </div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:12px">${mesLabel(o.mesInicio)} → ${mesLabel(o.mesFin)}${!vencido?` · ${restantes} ${restantes===1?"mes restante":"meses restantes"}`:""}</div>
+    <div class="prog-row"><span class="prog-label">Acumulado</span><span class="prog-pct">${fmt(Math.max(0,acumulado))} · ${p}%</span></div>
+    <div class="prog-track" style="height:8px;margin-bottom:0"><div class="prog-fill" style="width:${p}%;background:var(--green)"></div></div>
+    ${estadoHtml}`;
+}
+function openObjetivo(){
+  const o=getObjetivo();
+  document.getElementById("obj-monto").value=o?String(o.monto).replace(".",","):"";
+  if(o&&o.plazo)document.getElementById("obj-plazo").value=o.plazo;
+  document.getElementById("obj-delete").style.display=o?"":"none";
+  document.getElementById("obj-error").textContent="";
+  previewObjetivo();
+  document.getElementById("objetivo-overlay").classList.add("open");
+}
+function closeObjetivo(){document.getElementById("objetivo-overlay").classList.remove("open");}
+function closeObjetivoOnOverlay(e){if(e.target===document.getElementById("objetivo-overlay"))closeObjetivo();}
+function previewObjetivo(){
+  const monto=parseMonto(document.getElementById("obj-monto").value);
+  const plazo=parseInt(document.getElementById("obj-plazo").value)||3;
+  const el=document.getElementById("obj-preview");
+  if(!monto||monto<=0){el.textContent="";return;}
+  const porMes=monto/plazo;
+  const cap=capacidadAhorro();
+  let txt=`Necesitás guardar ${fmt(Math.round(porMes))} por mes.`;
+  if(cap!==null)txt+=cap>=porMes?` Tu capacidad promedio es ${fmt(Math.round(cap))}/mes — es alcanzable ✓`:` Tu capacidad promedio es ${fmt(Math.round(cap))}/mes — vas a necesitar ajustar ${fmt(Math.round(porMes-cap))}/mes.`;
+  el.textContent=txt;
+}
+function guardarObjetivo(){
+  const monto=parseMonto(document.getElementById("obj-monto").value);
+  const plazo=parseInt(document.getElementById("obj-plazo").value)||3;
+  if(!monto||monto<=0){document.getElementById("obj-error").textContent="Ingresá un monto válido";return;}
+  const mh=mesHoyStr();
+  localStorage.setItem("objetivo_ahorro",JSON.stringify({monto,plazo,mesInicio:mh,mesFin:mesAdd(mh,plazo-1)}));
+  guardarConfigRemota({objetivo_monto:monto,objetivo_plazo:plazo,objetivo_mes_inicio:mh,objetivo_mes_fin:mesAdd(mh,plazo-1)});
+  closeObjetivo();
+  showToast("Objetivo guardado","success");
+  renderObjetivo();
+}
+function eliminarObjetivo(){
+  localStorage.removeItem("objetivo_ahorro");
+  guardarConfigRemota({objetivo_monto:null,objetivo_plazo:null,objetivo_mes_inicio:null,objetivo_mes_fin:null});
+  closeObjetivo();
+  showToast("Objetivo eliminado","success");
+  renderObjetivo();
+}
+
+// ── PREMIUM: horizonte de liberación de cuotas ──────────────────
+function renderTCHorizonte(){
+  const el=document.getElementById("tc-horizonte");
+  if(!el)return;
+  const cuotas=buildCuotas(allMovs).filter(c=>c.fin>=mesSel);
+  if(!cuotas.length){el.innerHTML='<div class="empty" style="padding:16px">Sin cuotas a futuro — tarjeta liberada ✓</div>';return;}
+  const porFin={};
+  cuotas.forEach(c=>{if(!porFin[c.fin])porFin[c.fin]=[];porFin[c.fin].push(c);});
+  const fines=Object.keys(porFin).sort();
+  const cargaActual=cuotas.filter(c=>c.ini<=mesSel).reduce((a,b)=>a+b.montoCuota,0);
+  el.innerHTML=fines.slice(0,5).map(fin=>{
+    const grupo=porFin[fin];
+    const monto=grupo.reduce((a,b)=>a+b.montoCuota,0);
+    return `<div class="lib-row">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Desde ${mesLabel(mesAdd(fin,1))}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">termina: ${grupo.map(g=>esc(g.sub)).join(" · ")}</div>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:var(--green);white-space:nowrap">−${fmt(monto)}/mes</div>
+    </div>`;
+  }).join("")+`<div style="font-size:11px;color:var(--t2);padding-top:12px">Hoy pagás ${fmt(cargaActual)}/mes en cuotas.</div>`;
+}
+
 // ── TABS ────────────────────────────────────────────────────────
 function goTab(i){
   document.querySelectorAll(".tab-pane").forEach((p,idx)=>p.classList.toggle("active",idx===i));
@@ -1942,7 +2287,8 @@ async function guardarMovimiento(){
   const errEl=document.getElementById("modal-error");
   errEl.textContent="";
   if(!fecha){errEl.textContent="Seleccioná una fecha";return;}
-  if(!monto||monto<=0){errEl.textContent="Ingresá un monto válido";return;}
+  if(isNaN(monto)||monto<0){errEl.textContent="Ingresá un monto válido";return;}
+  if(monto===0&&modalTipo!=="Gasto"){errEl.textContent="El monto $0 es solo para gastos fijos que no aplican este mes";return;}
   if(modalTipo==="Gasto"&&!document.getElementById("f-categoria").value){errEl.textContent="Seleccioná una categoría";return;}
 
   const btn=document.getElementById("submit-btn");
