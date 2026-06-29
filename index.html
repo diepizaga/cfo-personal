@@ -984,7 +984,9 @@ function updateSubcats(){
   )].filter(s=>!cfgSubs.includes(s)).map(s=>({sub:s, esFijo:false}));
 
   _subcatOpts = [...deCfg, ...deHistorial];
-  renderSubcatDrop(_subcatOpts);
+  // No auto-abrir el desplegable al elegir categoría — solo se abre
+  // cuando el usuario toca el campo de subcategoría (onfocus → openSubcatDrop).
+  closeSubcatDrop();
 }
 
 let _subcatShown=[];
