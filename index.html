@@ -398,6 +398,9 @@ body { background: var(--bg); }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.success{background:var(--green-btn);color:#fff}
 #toast.error{background:#8C3B2E;color:#fff}
+.movs-pill{flex-shrink:0;height:34px;padding:0 16px;border-radius:99px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
+.movs-pill.active{background:var(--green);border-color:var(--green);color:#fff}
+.movs-day-label{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:14px 2px 6px}
 
 /* ── PREMIUM — score, escenarios, objetivo, horizonte ── */
 .score-wrap{position:relative;width:84px;height:84px;flex-shrink:0}
@@ -601,6 +604,8 @@ body { background: var(--bg); }
       <!-- Ritmo diario integrado -->
       <div id="ritmo-diario-inline" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06);font-size:12px;color:var(--t2)"></div>
     </div>
+    <div class="section-label section-toggle" onclick="openMovimientos()" style="cursor:pointer">Últimos movimientos <span style="color:var(--green);font-weight:700">Ver todos →</span></div>
+    <div class="card" id="ultimos-movs" style="padding:0;overflow:hidden"></div>
     <div class="section-label section-toggle" id="resumen-toggle" onclick="toggleResumen()">Resumen del mes <svg id="resumen-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 200ms var(--ease-out)"><polyline points="6 9 12 15 18 9"/></svg></div>
     <div class="card" id="resumen-card">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
@@ -664,8 +669,6 @@ body { background: var(--bg); }
 
   <!-- ── GASTOS ── -->
   <div class="tab-pane" id="pane-1">
-    <div class="section-label">Últimos movimientos</div>
-    <div class="card" id="ultimos-movs" style="padding:0;overflow:hidden"></div>
     <div class="section-label">Top 3 gastos caja</div>
     <div class="card" id="top-gastos"></div>
     <div class="card"><div class="card-title">Gasto variable por categoría</div><div class="chart-wrap" style="height:220px"><canvas id="chart-cat"></canvas></div></div>
@@ -917,6 +920,32 @@ body { background: var(--bg); }
       <button id="confirm-ok" style="flex:1;height:44px;border-radius:12px;border:none;background:#8C3B2E;color:#fff;font-size:14px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer">Eliminar</button>
     </div>
   </div>
+</div>
+
+<!-- PANTALLA COMPLETA: MOVIMIENTOS -->
+<div id="movs-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:150;flex-direction:column">
+  <div style="flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);padding:calc(env(safe-area-inset-top) + 12px) 16px 12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:17px;font-weight:700;color:var(--text)">Movimientos</div>
+      <button onclick="closeMovimientos()" aria-label="Cerrar" style="background:none;border:none;font-size:24px;color:var(--t3);cursor:pointer;line-height:1;padding:4px">×</button>
+    </div>
+    <!-- Filtros tipo -->
+    <div id="movs-pills" style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <button class="movs-pill active" data-tipo="Todos" onclick="setMovsTipo('Todos')">Todos</button>
+      <button class="movs-pill" data-tipo="Gasto" onclick="setMovsTipo('Gasto')">Gastos</button>
+      <button class="movs-pill" data-tipo="Ingreso" onclick="setMovsTipo('Ingreso')">Ingresos</button>
+      <button class="movs-pill" data-tipo="Ahorro" onclick="setMovsTipo('Ahorro')">Ahorros</button>
+    </div>
+    <!-- Buscador + mes -->
+    <div style="display:flex;gap:8px">
+      <input type="text" id="movs-search" placeholder="Buscar…" autocomplete="off" oninput="renderMovsFull()"
+        style="flex:1;height:40px;border:1px solid var(--border);border-radius:10px;padding:0 12px;font-size:14px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none">
+      <select id="movs-mes" onchange="renderMovsFull()"
+        style="height:40px;border:1px solid var(--border);border-radius:10px;padding:0 8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);outline:none"></select>
+    </div>
+  </div>
+  <div id="movs-count" style="flex-shrink:0;padding:8px 16px 0;font-size:11px;color:var(--t3);font-weight:600"></div>
+  <div id="movs-full-list" style="flex:1;overflow-y:auto;padding:8px 16px calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch"></div>
 </div>
 
 <script>
@@ -1515,7 +1544,10 @@ function renderMesList(){
 }
 
 // ── RENDER ALL ──────────────────────────────────────────────────
-function renderAll(){renderInicio();renderUltimosMovs();renderGastos();renderTarjeta();renderHistorial();renderIngresos();}
+function renderAll(){renderInicio();renderUltimosMovs();renderGastos();renderTarjeta();renderHistorial();renderIngresos();
+  // Si la pantalla completa de Movimientos está abierta, refrescarla también
+  if(document.getElementById("movs-overlay").style.display==="flex") renderMovsFull();
+}
 
 // ── INICIO ──────────────────────────────────────────────────────
 function renderInicio(){
@@ -1787,18 +1819,23 @@ function renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,
 function renderUltimosMovs(){
   const el=document.getElementById("ultimos-movs");
   if(!el) return;
-  // Los últimos 5 de TODOS los meses, ordenados por fecha desc
-  const ultimos=[...allMovs].sort((a,b)=>b.fecha-a.fecha).slice(0,10);
+  // Vistazo rápido en Inicio: los últimos 5 de todos los meses (el listado
+  // completo con filtros está en la pantalla de Movimientos — openMovimientos)
+  const ultimos=[...allMovs].sort((a,b)=>b.fecha-a.fecha).slice(0,5);
   if(ultimos.length===0){el.innerHTML='<div class="empty" style="padding:16px">Sin movimientos aún</div>';return;}
+  el.innerHTML=ultimos.map(movRowHtml).join("");
+}
+
+// HTML de una fila de movimiento (reutilizado en Inicio y en la pantalla completa)
+function movRowHtml(m){
   const iconos={Gasto:"💸",Ingreso:"💰",Ahorro:"🐷"};
   const colores={Gasto:"var(--red)",Ingreso:"var(--green)",Ahorro:"var(--yellow)"};
-  el.innerHTML=ultimos.map(m=>{
-    const fechaStr=m.fecha?`${m.fecha.getDate()}/${String(m.fecha.getMonth()+1).padStart(2,"0")}/${m.fecha.getFullYear()}`:"";
-    const titulo=m.sub||m.cat||m.ingTipo||m.tipo;
-    const meta=[m.cat&&m.sub?m.cat:null,fechaStr,m.detalle].filter(Boolean).join(" · ");
-    const color=colores[m.tipo]||"var(--t2)";
-    const signo=m.tipo==="Ingreso"?"+":m.tipo==="Ahorro"?"":"−";
-    return `<div class="mov-item">
+  const fechaStr=m.fecha?`${m.fecha.getDate()}/${String(m.fecha.getMonth()+1).padStart(2,"0")}/${m.fecha.getFullYear()}`:"";
+  const titulo=m.sub||m.cat||m.ingTipo||m.tipo;
+  const meta=[m.cat&&m.sub?m.cat:null,fechaStr,m.detalle].filter(Boolean).join(" · ");
+  const color=colores[m.tipo]||"var(--t2)";
+  const signo=m.tipo==="Ingreso"?"+":m.tipo==="Ahorro"?"":"−";
+  return `<div class="mov-item">
       <div class="mov-icon" style="background:color-mix(in srgb, ${color} 12%, transparent)">${iconos[m.tipo]||"📋"}</div>
       <div class="mov-info">
         <div class="mov-title">${esc(titulo)}</div>
@@ -1812,7 +1849,64 @@ function renderUltimosMovs(){
         </div>
       </div>
     </div>`;
+}
+
+// ── PANTALLA COMPLETA DE MOVIMIENTOS ────────────────────────────
+let _movsTipo="Todos";
+const _MESNOM=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+function openMovimientos(){
+  // Poblar el selector de meses (más nuevo primero) + opción "Todos"
+  const sel=document.getElementById("movs-mes");
+  const meses=[...mesList].sort().reverse();
+  sel.innerHTML='<option value="">Todos los meses</option>'+meses.map(m=>{
+    const [y,mm]=m.split("-");
+    return `<option value="${m}">${_MESNOM[parseInt(mm,10)-1]} ${y}</option>`;
   }).join("");
+  document.getElementById("movs-search").value="";
+  _movsTipo="Todos";
+  document.querySelectorAll(".movs-pill").forEach(p=>p.classList.toggle("active",p.dataset.tipo==="Todos"));
+  document.getElementById("movs-overlay").style.display="flex";
+  renderMovsFull();
+}
+
+function closeMovimientos(){
+  document.getElementById("movs-overlay").style.display="none";
+}
+
+function setMovsTipo(t){
+  _movsTipo=t;
+  document.querySelectorAll(".movs-pill").forEach(p=>p.classList.toggle("active",p.dataset.tipo===t));
+  renderMovsFull();
+}
+
+function renderMovsFull(){
+  const cont=document.getElementById("movs-full-list");
+  if(!cont) return;
+  const q=document.getElementById("movs-search").value.trim().toLowerCase();
+  const mesF=document.getElementById("movs-mes").value;
+  let lista=[...allMovs].sort((a,b)=>b.fecha-a.fecha);
+  if(_movsTipo!=="Todos") lista=lista.filter(m=>m.tipo===_movsTipo);
+  if(mesF) lista=lista.filter(m=>m.mes===mesF);
+  if(q) lista=lista.filter(m=>[m.sub,m.cat,m.ingTipo,m.detalle,m.tipo].filter(Boolean).join(" ").toLowerCase().includes(q));
+
+  // Contador + suma
+  const total=lista.reduce((a,b)=>a+b.monto,0);
+  document.getElementById("movs-count").textContent=`${lista.length} movimiento${lista.length===1?"":"s"} · ${fmt(total)}`;
+
+  if(lista.length===0){cont.innerHTML='<div class="empty" style="padding:32px 16px;text-align:center">Sin movimientos para este filtro</div>';return;}
+
+  // Agrupar por día: cada día es un título + una card con sus filas
+  let html="", lastKey="", curLbl="", buffer=[];
+  const flush=(lbl)=>{ if(buffer.length){ html+=`<div class="movs-day-label">${lbl}</div><div class="card" style="padding:0;overflow:hidden">${buffer.join("")}</div>`; buffer=[]; } };
+  lista.forEach(m=>{
+    const key=m.fecha?`${m.fecha.getFullYear()}-${m.fecha.getMonth()}-${m.fecha.getDate()}`:"sin";
+    const lbl=m.fecha?`${m.fecha.getDate()} ${_MESNOM[m.fecha.getMonth()]} ${m.fecha.getFullYear()}`:"Sin fecha";
+    if(key!==lastKey){ flush(curLbl); lastKey=key; curLbl=lbl; }
+    buffer.push(movRowHtml(m));
+  });
+  flush(curLbl);
+  cont.innerHTML=html;
 }
 
 async function eliminarMovimiento(id){
