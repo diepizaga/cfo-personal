@@ -1448,7 +1448,7 @@ async function syncData(){
     const mesConActividad=new Set();
     allMovs.forEach(mv=>{
       if(mv.tipo==="Ingreso") mesConActividad.add(mv.mes);
-      if(mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera") mesConActividad.add(mv.mes);
+      if(mv.tipo==="Gasto"&&esSalidaReal(mv)) mesConActividad.add(mv.mes);
     });
     mesConActividad.add(mesHoy);
     mesList=Array.from(mesConActividad).filter(Boolean).sort();
@@ -1497,6 +1497,13 @@ function esFijo(m){
   return FIJOS_DEF.some(([,cat,sub])=>m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase());
 }
 
+// Un gasto representa salida real de dinero de la cuenta ese mes si se pagó
+// por Cuenta/Billetera o Débito. Crédito no cuenta hasta que se paga el
+// resumen de la tarjeta (ver docs/DECISIONS.md cuando exista).
+function esSalidaReal(m){
+  return m.medio==="Cuenta / Billetera"||m.medio==="Débito";
+}
+
 // ── RESUMEN FINANCIERO MENSUAL (compartido) ───────────────────────
 // Única implementación de "Disponible del mes" — Inicio, Historial y
 // capacidad de ahorro consumen esta función en vez de recalcular por su cuenta.
@@ -1506,7 +1513,7 @@ function calcularResumenMes(mes,movs,totalFijos){
   const ingresos=movIngreso.filter(m=>!m.esAhorro&&!m.esMovInterno).reduce((a,b)=>a+b.monto,0);
   const usoAhorro=movIngreso.filter(m=>m.esAhorro).reduce((a,b)=>a+b.monto,0);
   const movInterno=movIngreso.filter(m=>m.esMovInterno).reduce((a,b)=>a+b.monto,0);
-  const gastosLibres=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)&&m.monto>0).reduce((a,b)=>a+b.monto,0);
+  const gastosLibres=movsMes.filter(m=>m.tipo==="Gasto"&&esSalidaReal(m)&&!esFijo(m)&&m.monto>0).reduce((a,b)=>a+b.monto,0);
   const ahorrado=movsMes.filter(m=>m.esAhorroEgreso).reduce((a,b)=>a+b.monto,0);
   const libre=ingresos+usoAhorro+movInterno-totalFijos-gastosLibres-ahorrado;
   return{ingresos,usoAhorro,movInterno,totalFijos,gastosLibres,ahorrado,libre};
@@ -1631,7 +1638,7 @@ function renderInicio(){
 
   // Saldo real en cuenta
   const saIngTotal=movsMes.filter(m=>m.tipo==="Ingreso").reduce((a,b)=>a+b.monto,0);
-  const saGasTotal=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera").reduce((a,b)=>a+b.monto,0);
+  const saGasTotal=movsMes.filter(m=>m.tipo==="Gasto"&&esSalidaReal(m)).reduce((a,b)=>a+b.monto,0);
   const saldoActual=saIngTotal-saGasTotal-ahorradoMes;
   const saEl=document.getElementById("saldo-actual-val");
   saEl.textContent=fmt(saldoActual);
@@ -1812,7 +1819,7 @@ function renderInsights(movsMes,ingresos,totalFijos,gastosLibres,libre,pctGasto,
   else if(pctFijosTotal>65)insights.push({icon:"⚠️",text:`Los fijos consumen el <strong>${pctFijosTotal}%</strong> del ingreso`,prioridad:1});
   if(idxMes>0){
     const mesAnt=mesList[idxMes-1];
-    const gastosAnt=allMovs.filter(m=>m.mes===mesAnt&&m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)&&m.monto>0).reduce((a,b)=>a+b.monto,0);
+    const gastosAnt=allMovs.filter(m=>m.mes===mesAnt&&m.tipo==="Gasto"&&esSalidaReal(m)&&!esFijo(m)&&m.monto>0).reduce((a,b)=>a+b.monto,0);
     if(gastosAnt>0&&gastosLibres>0){
       const v=Math.round((gastosLibres-gastosAnt)/gastosAnt*100);
       if(v>10)insights.push({icon:"📈",text:`Gastaste <strong>${v}% más</strong> que el mes pasado en variables`,prioridad:1});
@@ -2008,7 +2015,7 @@ function closeModal(){
 // ── GASTOS ──────────────────────────────────────────────────────
 function renderGastos(){
   const TH=chartTheme();
-  const movsMes=allMovs.filter(m=>m.mes===mesSel&&m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera");
+  const movsMes=allMovs.filter(m=>m.mes===mesSel&&m.tipo==="Gasto"&&esSalidaReal(m));
   const ingMes=allMovs.filter(m=>m.mes===mesSel&&m.tipo==="Ingreso").reduce((a,b)=>a+b.monto,0);
   const topGastos=[...movsMes].filter(m=>!esFijo(m)&&m.monto>0).sort((a,b)=>b.monto-a.monto).slice(0,3);
   const tg=document.getElementById("top-gastos");
@@ -2076,7 +2083,7 @@ function renderHistorial(){
   const meses=mesList.filter(m=>allMovs.some(mv=>mv.mes===m));
   const data=meses.map(m=>{
     const movs=allMovs.filter(mv=>mv.mes===m);
-    const gas=movs.filter(mv=>mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
+    const gas=movs.filter(mv=>mv.tipo==="Gasto"&&esSalidaReal(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
     const totalFijosH=getFijosParaMes(m).reduce((a,f)=>a+f.monto,0);
     const{ingresos:ing,libre}=getResumenMesCache(m,allMovs,totalFijosH);
     return{m,ing,gas,libre};
@@ -2174,7 +2181,7 @@ function renderCFO(p){
   let trendPct=null;
   const prevMeses=mesList.filter(m=>m<mesSel).slice(-3);
   const rates=prevMeses.map(m=>{
-    const tot=allMovs.filter(mv=>mv.mes===m&&mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
+    const tot=allMovs.filter(mv=>mv.mes===m&&mv.tipo==="Gasto"&&esSalidaReal(mv)&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
     const q=m.split("-").map(Number);
     return tot/new Date(q[0],q[1],0).getDate();
   }).filter(r=>r>0);
@@ -2240,7 +2247,7 @@ function capacidadAhorro(){
 }
 function sugerenciasAjuste(){
   const mh=mesHoyStr();
-  const movs=allMovs.filter(m=>m.mes===mh&&m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)&&m.monto>0);
+  const movs=allMovs.filter(m=>m.mes===mh&&m.tipo==="Gasto"&&esSalidaReal(m)&&!esFijo(m)&&m.monto>0);
   const map={};movs.forEach(m=>{if(m.sub)map[m.sub]=(map[m.sub]||0)+m.monto;});
   const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,3);
   if(!top.length)return"";
