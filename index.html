@@ -959,17 +959,30 @@ const sb = createClient(
 
 // ── CONFIG: CIERRE TC ───────────────────────────────────────────
 function getCierreDia(){ return parseInt(localStorage.getItem("cierre_tc_dia")||"20",10); }
-function setCierreDia(d){ localStorage.setItem("cierre_tc_dia", d); CIERRE_TC_DIA = d; _cacheRender={resumenPorMes:{},cuotas:null}; guardarConfigRemota({cierre_tc_dia:d}); }
+async function setCierreDia(d){
+  await guardarConfigRemota({cierre_tc_dia:d});
+  localStorage.setItem("cierre_tc_dia", d);
+  CIERRE_TC_DIA = d;
+  _cacheRender={resumenPorMes:{},cuotas:null};
+}
 let CIERRE_TC_DIA = getCierreDia();
 
-function guardarCierre(){
+async function guardarCierre(){
   const val = parseInt(document.getElementById("cierre-input").value)||20;
   const clamped = Math.min(31, Math.max(1, val));
-  setCierreDia(clamped);
+  const btn = document.querySelector(".cierre-save");
+  btn.disabled = true; btn.textContent = "Guardando...";
+  try{
+    await setCierreDia(clamped);
+  }catch(e){
+    btn.disabled = false; btn.textContent = "Guardar";
+    showToast("Error al guardar: "+e.message,"error");
+    return;
+  }
   document.getElementById("cierre-lbl").textContent = clamped;
   document.getElementById("cierre-input").value = clamped;
   // Feedback visual
-  const btn = document.querySelector(".cierre-save");
+  btn.disabled = false;
   btn.textContent = "✓ Guardado";
   btn.style.background = "var(--green-btn)";
   setTimeout(()=>btn.textContent="Guardar", 1800);
@@ -1386,10 +1399,8 @@ async function cargarConfig(){
 }
 async function guardarConfigRemota(parcial){
   if(!currentUser)return;
-  try{
-    const {error}=await sb.from("config_usuario").upsert(Object.assign({user_id:currentUser.id,updated_at:new Date().toISOString()},parcial));
-    if(error)console.warn("config_usuario:",error.message);
-  }catch(e){console.warn("config_usuario:",e);}
+  const {error}=await sb.from("config_usuario").upsert(Object.assign({user_id:currentUser.id,updated_at:new Date().toISOString()},parcial));
+  if(error) throw error;
 }
 
 // ── SYNC ────────────────────────────────────────────────────────
@@ -2303,20 +2314,43 @@ function previewObjetivo(){
   if(cap!==null)txt+=cap>=porMes?` Tu capacidad promedio es ${fmt(Math.round(cap))}/mes — es alcanzable ✓`:` Tu capacidad promedio es ${fmt(Math.round(cap))}/mes — vas a necesitar ajustar ${fmt(Math.round(porMes-cap))}/mes.`;
   el.textContent=txt;
 }
-function guardarObjetivo(){
+async function guardarObjetivo(){
   const monto=parseMonto(document.getElementById("obj-monto").value);
   const plazo=parseInt(document.getElementById("obj-plazo").value)||3;
-  if(!monto||monto<=0){document.getElementById("obj-error").textContent="Ingresá un monto válido";return;}
+  const errEl=document.getElementById("obj-error");
+  errEl.textContent="";
+  if(!monto||monto<=0){errEl.textContent="Ingresá un monto válido";return;}
   const mh=mesHoyStr();
-  localStorage.setItem("objetivo_ahorro",JSON.stringify({monto,plazo,mesInicio:mh,mesFin:mesAdd(mh,plazo-1)}));
-  guardarConfigRemota({objetivo_monto:monto,objetivo_plazo:plazo,objetivo_mes_inicio:mh,objetivo_mes_fin:mesAdd(mh,plazo-1)});
+  const objetivo={monto,plazo,mesInicio:mh,mesFin:mesAdd(mh,plazo-1)};
+  const btn=document.querySelector("#objetivo-overlay .submit-btn");
+  btn.disabled=true; btn.textContent="Guardando...";
+  try{
+    await guardarConfigRemota({objetivo_monto:objetivo.monto,objetivo_plazo:objetivo.plazo,objetivo_mes_inicio:objetivo.mesInicio,objetivo_mes_fin:objetivo.mesFin});
+  }catch(e){
+    btn.disabled=false; btn.textContent="Guardar objetivo";
+    errEl.textContent="Error al guardar: "+e.message;
+    return;
+  }
+  btn.disabled=false; btn.textContent="Guardar objetivo";
+  localStorage.setItem("objetivo_ahorro",JSON.stringify(objetivo));
   closeObjetivo();
   showToast("Objetivo guardado","success");
   renderObjetivo();
 }
-function eliminarObjetivo(){
+async function eliminarObjetivo(){
+  const errEl=document.getElementById("obj-error");
+  errEl.textContent="";
+  const btn=document.getElementById("obj-delete");
+  btn.disabled=true; btn.textContent="Eliminando...";
+  try{
+    await guardarConfigRemota({objetivo_monto:null,objetivo_plazo:null,objetivo_mes_inicio:null,objetivo_mes_fin:null});
+  }catch(e){
+    btn.disabled=false; btn.textContent="Eliminar objetivo";
+    errEl.textContent="Error al eliminar: "+e.message;
+    return;
+  }
+  btn.disabled=false; btn.textContent="Eliminar objetivo";
   localStorage.removeItem("objetivo_ahorro");
-  guardarConfigRemota({objetivo_monto:null,objetivo_plazo:null,objetivo_mes_inicio:null,objetivo_mes_fin:null});
   closeObjetivo();
   showToast("Objetivo eliminado","success");
   renderObjetivo();
