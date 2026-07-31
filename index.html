@@ -1404,7 +1404,10 @@ async function guardarConfigRemota(parcial){
 }
 
 // ── SYNC ────────────────────────────────────────────────────────
+let _syncEnCurso=false;
 async function syncData(){
+  if(_syncEnCurso) return;
+  _syncEnCurso=true;
   const dot=document.getElementById("sync-dot"),lbl=document.getElementById("sync-lbl");
   dot.classList.add("syncing"); lbl.textContent="Actualizando...";
   try{
@@ -1468,6 +1471,7 @@ async function syncData(){
   const loadEl=document.getElementById("loading");
   loadEl.classList.add("fade-out");
   setTimeout(()=>loadEl.style.display="none",260);
+  _syncEnCurso=false;
 }
 
 // ── FIJOS ───────────────────────────────────────────────────────
@@ -1892,7 +1896,7 @@ function movRowHtml(m){
         <div class="mov-monto" style="color:${color}">${signo}${fmt(m.monto)}</div>
         <div style="display:flex;gap:4px">
           <button class="mov-edit-btn" style="display:flex;align-items:center;gap:4px" onclick="editMovimiento('${m.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Editar</button>
-          <button class="mov-edit-btn" style="display:flex;align-items:center;color:var(--red);border-color:var(--red-border)" aria-label="Eliminar" onclick="eliminarMovimiento('${m.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+          <button class="mov-edit-btn" style="display:flex;align-items:center;color:var(--red);border-color:var(--red-border)" aria-label="Eliminar" onclick="eliminarMovimiento('${m.id}',this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
         </div>
       </div>
     </div>`;
@@ -1956,12 +1960,21 @@ function renderMovsFull(){
   cont.innerHTML=html;
 }
 
-async function eliminarMovimiento(id){
+let _eliminandoIds=new Set();
+async function eliminarMovimiento(id,btn){
+  if(_eliminandoIds.has(id)) return;
   const _m=allMovs.find(x=>x.id===id);
   const titulo=_m?(_m.sub||_m.cat||_m.ingTipo||_m.tipo):"este movimiento";
   if(!(await confirmDialog(`¿Eliminás "${titulo}"? Esta acción no se puede deshacer.`,"Eliminar")))return;
+  _eliminandoIds.add(id);
+  if(btn) btn.disabled=true;
   const {error}=await sb.from("movimientos").delete().eq("id",id);
-  if(error){showToast("Error al eliminar: "+error.message,"error");return;}
+  _eliminandoIds.delete(id);
+  if(error){
+    if(btn) btn.disabled=false;
+    showToast("Error al eliminar: "+error.message,"error");
+    return;
+  }
   showToast("Movimiento eliminado","success");
   await syncData();
 }
@@ -2580,6 +2593,21 @@ setResumenOpen(localStorage.getItem("resumen_open")==="1");
 if(window.matchMedia){
   try{window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if(currentUser)renderAll();});}catch(e){}
 }
+
+// Resincronizar al volver de segundo plano — solo si no hay ya una
+// sincronización en curso y sin interrumpir una interacción activa
+// (un modal abierto, o la pantalla completa de Movimientos).
+function hayInteraccionActiva(){
+  if(document.querySelectorAll(".modal-overlay.open").length>0) return true;
+  const movsOv=document.getElementById("movs-overlay");
+  if(movsOv&&movsOv.style.display==="flex") return true;
+  return false;
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&currentUser&&!_syncEnCurso&&!hayInteraccionActiva()){
+    syncData();
+  }
+});
 </script>
 </body>
 </html>
