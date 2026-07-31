@@ -40,7 +40,7 @@ Antes de listar problemas, esto es lo que la auditoría confirmó que funciona c
 **Clasificación:** el defecto funcional confirmado es la fórmula incompleta de `capacidadAhorro()` (con impacto financiero real y cuantificado). El resto (duplicación, recálculo redundante, acoplamiento cálculo-DOM) es **deuda técnica**: no produce hoy un resultado incorrecto, pero es la causa estructural que permitió que la fórmula incompleta pasara desapercibida, y es lo que hace crecer el costo de cálculo de forma superlineal con el uso.
 
 **Impacto actual:** la discrepancia está confirmada y cuantificada (capacidadAhorro); su efecto sobre el valor mostrado en la tarjeta de Objetivo de ahorro se produce cuando julio 2026 pase a integrar los meses cerrados que usa el algoritmo, según el comportamiento verificado del código — no observado todavía en pantalla dentro de esta auditoría.
-**Riesgo de escalabilidad:** la cantidad de trabajo de cálculo crece aproximadamente con el producto entre meses históricos y movimientos registrados — sin evidencia de que esto sea perceptible hoy (630 movimientos, 20 meses), pero es una tendencia de crecimiento verificada, no acotada por ningún mecanismo de caché.
+**Riesgo de escalabilidad:** la cantidad de trabajo de cálculo crece aproximadamente con el producto entre meses históricos y movimientos registrados — sin evidencia de que esto sea perceptible hoy (630 movimientos; 7 meses en `mesList` según el criterio real de la app, Ingreso o Gasto por Cuenta/Billetera, aunque hay movimientos registrados desde diciembre de 2024), pero es una tendencia de crecimiento verificada, no acotada por ningún mecanismo de caché.
 
 ---
 
@@ -51,12 +51,14 @@ Antes de listar problemas, esto es lo que la auditoría confirmó que funciona c
 **Manifestaciones concretas:**
 - Un gasto a Débito no-fijo no impacta en ningún cálculo agregado (verificado con un movimiento real de $6.800, cuenta de prueba).
 - Un gasto a Crédito no-fijo vive únicamente en la pestaña Tarjeta, invisible en "Disponible del mes", en el desglose de Gastos y en el Historial.
-- Un gasto fijo pagado a Crédito en cuotas (caso real: GYM, $47.979,99, 3 cuotas) se contabiliza **completo** en el mes de la compra según `getFijosParaMes()`, y **prorrateado en meses distintos** según `buildCuotas()` — reconstruí la línea de tiempo completa mes a mes con datos reales: en diciembre 2025, "Disponible del mes" restaba $47.979,99 mientras la pestaña Tarjeta mostraba $15.993 por el mismo compromiso.
+- Un gasto fijo pagado a Crédito en cuotas (caso real: GYM, $47.979,99, 3 cuotas) se contabiliza **completo** en el mes de la compra según `getFijosParaMes()`, y **prorrateado en meses distintos** según `buildCuotas()` — reconstruí la línea de tiempo completa mes a mes con datos reales: en diciembre 2025, "Disponible del mes" restaba $47.979,99 mientras la pestaña Tarjeta mostraba $15.993 por el mismo compromiso. Verificado posteriormente, durante la implementación del Bloque B.2: diciembre 2025 —el mes exacto de este ejemplo— nunca fue alcanzable en el selector de mes real de la app, porque noviembre y diciembre de 2025 no tienen ningún movimiento de Ingreso ni Gasto por Cuenta/Billetera (el único criterio que determina qué meses entran en `mesList`). El defecto del algoritmo es real y reproducible invocando la función directamente para ese mes; no hay evidencia de que haya llegado a mostrarse en pantalla.
 
 **Clasificación:** **defecto funcional confirmado** — no es una decisión de diseño documentada en ningún lado (no hay comentario ni commit que la explique), es una consecuencia de dos algoritmos de fechado independientes sobre el mismo dato que nunca se reconcilian.
 
-**Impacto actual:** confirmado con datos reales de la cuenta activa de Diego (caso GYM, nov-2025 a feb-2026 ya ocurrido).
+**Impacto actual:** el defecto del algoritmo está confirmado y es reproducible con datos reales de la cuenta activa (caso GYM). El mes donde el doble conteo se demuestra (diciembre 2025) no era alcanzable en el selector de mes real de la app al momento de esta auditoría — no hay evidencia de que este defecto haya sido visible en pantalla, aunque el algoritmo lo producía de forma reproducible cada vez que se lo invocaba para ese mes.
 **Riesgo de escalabilidad:** crece con cada compra fija pagada a crédito en cuotas — no depende del volumen total de datos, depende de la frecuencia de este patrón de uso específico.
+
+**Nota agregada durante la implementación (Bloque B.2, 2026-07-31):** al corregir este hallazgo aparecieron dos mecanismos adicionales de búsqueda de referencia hacia atrás, con el mismo patrón de riesgo, pero puramente cosméticos — ninguno de los dos alimenta ningún cálculo financiero (Disponible, saldo, u otro): el badge ▲/▼ de variación en la lista de fijos de Inicio, y el insight "Tenés $X en suscripciones y fijos opcionales...". Quedaron explícitamente fuera del alcance de B.2 por no afectar cálculos financieros, con acuerdo de Diego — pendientes de evaluar como bloque o bug de consistencia visual en el futuro.
 
 ---
 
