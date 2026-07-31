@@ -1471,7 +1471,10 @@ function getFijosParaMes(mes){
     }
     const mesesAnt=mesList.filter(m=>m<mes).reverse();
     for(const mesAnt of mesesAnt){
-      const enAnt=allMovs.filter(m=>m.mes===mesAnt&&m.tipo==="Gasto"&&m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase());
+      // Una compra en cuotas ya reconoció el compromiso completo en su propio
+      // mes — no puede volver a usarse como referencia en meses posteriores
+      // (evita que el mismo gasto impacte el Disponible dos veces).
+      const enAnt=allMovs.filter(m=>m.mes===mesAnt&&m.tipo==="Gasto"&&!m.esCuota&&m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase());
       const montoAnt=enAnt.filter(m=>m.monto>0).reduce((a,b)=>a+b.monto,0);
       if(montoAnt>0) return{nombre,monto:montoAnt,estado:"referencia",mes:mesAnt};
     }
