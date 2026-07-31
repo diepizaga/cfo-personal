@@ -959,7 +959,7 @@ const sb = createClient(
 
 // ── CONFIG: CIERRE TC ───────────────────────────────────────────
 function getCierreDia(){ return parseInt(localStorage.getItem("cierre_tc_dia")||"20",10); }
-function setCierreDia(d){ localStorage.setItem("cierre_tc_dia", d); CIERRE_TC_DIA = d; guardarConfigRemota({cierre_tc_dia:d}); }
+function setCierreDia(d){ localStorage.setItem("cierre_tc_dia", d); CIERRE_TC_DIA = d; _cacheRender={resumenPorMes:{},cuotas:null}; guardarConfigRemota({cierre_tc_dia:d}); }
 let CIERRE_TC_DIA = getCierreDia();
 
 function guardarCierre(){
@@ -1483,6 +1483,36 @@ function esFijo(m){
   return FIJOS_DEF.some(([,cat,sub])=>m.cat.toLowerCase()===cat.toLowerCase()&&m.sub.toLowerCase()===sub.toLowerCase());
 }
 
+// ── RESUMEN FINANCIERO MENSUAL (compartido) ───────────────────────
+// Única implementación de "Disponible del mes" — Inicio, Historial y
+// capacidad de ahorro consumen esta función en vez de recalcular por su cuenta.
+function calcularResumenMes(mes,movs,totalFijos){
+  const movsMes=movs.filter(m=>m.mes===mes);
+  const movIngreso=movsMes.filter(m=>m.tipo==="Ingreso");
+  const ingresos=movIngreso.filter(m=>!m.esAhorro&&!m.esMovInterno).reduce((a,b)=>a+b.monto,0);
+  const usoAhorro=movIngreso.filter(m=>m.esAhorro).reduce((a,b)=>a+b.monto,0);
+  const movInterno=movIngreso.filter(m=>m.esMovInterno).reduce((a,b)=>a+b.monto,0);
+  const gastosLibres=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)&&m.monto>0).reduce((a,b)=>a+b.monto,0);
+  const ahorrado=movsMes.filter(m=>m.esAhorroEgreso).reduce((a,b)=>a+b.monto,0);
+  const libre=ingresos+usoAhorro+movInterno-totalFijos-gastosLibres-ahorrado;
+  return{ingresos,usoAhorro,movInterno,totalFijos,gastosLibres,ahorrado,libre};
+}
+
+// ── CACHÉ EFÍMERO DE RENDER ────────────────────────────────────────
+// Vive solo durante un ciclo de renderAll() — se reconstruye desde cero
+// en cada sincronización. Se invalida explícitamente en setCierreDia(),
+// el único punto donde cambia un dato (CIERRE_TC_DIA) del que depende
+// buildCuotas() sin pasar por renderAll().
+let _cacheRender={resumenPorMes:{},cuotas:null};
+function getResumenMesCache(mes,movs,totalFijos){
+  if(!(mes in _cacheRender.resumenPorMes)) _cacheRender.resumenPorMes[mes]=calcularResumenMes(mes,movs,totalFijos);
+  return _cacheRender.resumenPorMes[mes];
+}
+function getCuotasCache(){
+  if(!_cacheRender.cuotas) _cacheRender.cuotas=buildCuotas(allMovs);
+  return _cacheRender.cuotas;
+}
+
 // ── CUOTAS ──────────────────────────────────────────────────────
 function buildCuotas(movs){
   return movs.filter(m=>m.tipo==="Gasto"&&m.medio==="Crédito"&&m.esCuota&&m.cuotas>1&&m.fecha).map(m=>{
@@ -1491,7 +1521,11 @@ function buildCuotas(movs){
     const ini=`${mesF.getFullYear()}-${String(mesF.getMonth()+1).padStart(2,"0")}`;
     const finDate=new Date(mesF.getFullYear(),mesF.getMonth()+m.cuotas-1,1);
     const finStr=`${finDate.getFullYear()}-${String(finDate.getMonth()+1).padStart(2,"0")}`;
-    return{sub:m.sub||m.cat,tarjeta:m.tarjeta,ini,fin:finStr,montoCuota:Math.round(m.monto/m.cuotas),total:m.cuotas,detalle:m.detalle,fechaOrig:m.fecha};
+    // Precisión a centavos en cada cuota, con reconciliación del residuo en la
+    // última cuota — la suma de todas las cuotas siempre iguala el monto original.
+    const montoCuota=Math.round(m.monto/m.cuotas*100)/100;
+    const montoUltimaCuota=Math.round((m.monto-montoCuota*(m.cuotas-1))*100)/100;
+    return{sub:m.sub||m.cat,tarjeta:m.tarjeta,ini,fin:finStr,montoCuota,montoUltimaCuota,total:m.cuotas,detalle:m.detalle,fechaOrig:m.fecha};
   });
 }
 
@@ -1544,7 +1578,9 @@ function renderMesList(){
 }
 
 // ── RENDER ALL ──────────────────────────────────────────────────
-function renderAll(){renderInicio();renderUltimosMovs();renderGastos();renderTarjeta();renderHistorial();renderIngresos();
+function renderAll(){
+  _cacheRender={resumenPorMes:{},cuotas:null};
+  renderInicio();renderUltimosMovs();renderGastos();renderTarjeta();renderHistorial();renderIngresos();
   // Si la pantalla completa de Movimientos está abierta, refrescarla también
   if(document.getElementById("movs-overlay").style.display==="flex") renderMovsFull();
 }
@@ -1552,19 +1588,9 @@ function renderAll(){renderInicio();renderUltimosMovs();renderGastos();renderTar
 // ── INICIO ──────────────────────────────────────────────────────
 function renderInicio(){
   const movsMes=allMovs.filter(m=>m.mes===mesSel);
-  const movIngreso=movsMes.filter(m=>m.tipo==="Ingreso");
-  const movIngReal=movIngreso.filter(m=>!m.esAhorro&&!m.esMovInterno);
-  const movAhorro=movIngreso.filter(m=>m.esAhorro);
-  const movMovInt=movIngreso.filter(m=>m.esMovInterno);
-  const ingresos=movIngReal.reduce((a,b)=>a+b.monto,0);
-  const usoAhorroMes=movAhorro.reduce((a,b)=>a+b.monto,0);
-  const movInternoMes=movMovInt.reduce((a,b)=>a+b.monto,0);
   const fijos=getFijosParaMes(mesSel);
   const totalFijos=fijos.reduce((a,f)=>a+f.monto,0);
-  const gastosLibres=movsMes.filter(m=>m.tipo==="Gasto"&&m.medio==="Cuenta / Billetera"&&!esFijo(m)).reduce((a,b)=>a+b.monto,0);
-  const movAhorroEgreso=movsMes.filter(m=>m.esAhorroEgreso);
-  const ahorradoMes=movAhorroEgreso.reduce((a,b)=>a+b.monto,0);
-  const libre=ingresos+usoAhorroMes+movInternoMes-totalFijos-gastosLibres-ahorradoMes;
+  const {ingresos,usoAhorro:usoAhorroMes,movInterno:movInternoMes,gastosLibres,ahorrado:ahorradoMes,libre}=getResumenMesCache(mesSel,allMovs,totalFijos);
 
   const hoy=new Date();
   const [mesY,mesM]=mesSel.split("-").map(Number);
@@ -2000,9 +2026,10 @@ function renderGastos(){
 
 // ── TARJETA ─────────────────────────────────────────────────────
 function renderTarjeta(){
-  const cuotas=buildCuotas(allMovs);
+  const cuotas=getCuotasCache();
   const activas=cuotas.filter(c=>c.ini<=mesSel&&c.fin>=mesSel);
-  const totalCuotas=activas.reduce((a,b)=>a+b.montoCuota,0);
+  const montoDelMes=c=>mesSel===c.fin?c.montoUltimaCuota:c.montoCuota;
+  const totalCuotas=activas.reduce((a,b)=>a+montoDelMes(b),0);
   const [msY,msM]=mesSel.split("-").map(Number);
   const fechaInicioCorte=new Date(msY,msM-2,CIERRE_TC_DIA+1);
   const fechaFinCorte=new Date(msY,msM-1,CIERRE_TC_DIA);
@@ -2026,7 +2053,7 @@ function renderTarjeta(){
   renderTCHorizonte();
   const lc=document.getElementById("lista-cuotas");
   if(!activas.length){lc.innerHTML='<div class="empty" style="padding:24px;line-height:1.6">✓ Sin cuotas activas este mes</div>';return;}
-  lc.innerHTML=activas.map(c=>{const tot=mesEntre(c.ini,c.fin);const pas=mesEntre(c.ini,mesSel);const rest=tot-pas;const p=Math.round(pas/tot*100);return`<div class="cuota-card"><div class="cuota-top"><div><div class="cuota-name">${esc(c.sub)}${c.detalle?" · "+esc(c.detalle):""}</div><div class="cuota-meta">${c.tarjeta||"VISA"} · hasta ${c.fin} · ${rest} cuotas restantes</div></div><div class="cuota-amt">${fmt(c.montoCuota)}/mes</div></div><div class="cuota-prog-lbl"><span>${pas}/${tot} pagadas</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%;background:var(--green)"></div></div></div>`;}).join("");
+  lc.innerHTML=activas.map(c=>{const tot=mesEntre(c.ini,c.fin);const pas=mesEntre(c.ini,mesSel);const rest=tot-pas;const p=Math.round(pas/tot*100);return`<div class="cuota-card"><div class="cuota-top"><div><div class="cuota-name">${esc(c.sub)}${c.detalle?" · "+esc(c.detalle):""}</div><div class="cuota-meta">${c.tarjeta||"VISA"} · hasta ${c.fin} · ${rest} cuotas restantes</div></div><div class="cuota-amt">${fmt(montoDelMes(c))}/mes</div></div><div class="cuota-prog-lbl"><span>${pas}/${tot} pagadas</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%;background:var(--green)"></div></div></div>`;}).join("");
 }
 
 // ── HISTORIAL ───────────────────────────────────────────────────
@@ -2035,14 +2062,9 @@ function renderHistorial(){
   const meses=mesList.filter(m=>allMovs.some(mv=>mv.mes===m));
   const data=meses.map(m=>{
     const movs=allMovs.filter(mv=>mv.mes===m);
-    const ing=movs.filter(mv=>mv.tipo==="Ingreso"&&!mv.esAhorro&&!mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
-    const usoAh=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esAhorro).reduce((a,b)=>a+b.monto,0);
-    const movInt=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
-    const ahorEgr=movs.filter(mv=>mv.esAhorroEgreso).reduce((a,b)=>a+b.monto,0);
     const gas=movs.filter(mv=>mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
-    const gasLibres=movs.filter(mv=>mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
     const totalFijosH=getFijosParaMes(m).reduce((a,f)=>a+f.monto,0);
-    const libre=ing+usoAh+movInt-totalFijosH-gasLibres-ahorEgr;
+    const{ingresos:ing,libre}=getResumenMesCache(m,allMovs,totalFijosH);
     return{m,ing,gas,libre};
   }).filter(d=>d.ing>0||d.gas>0);
   if(charts.hist)charts.hist.destroy();
@@ -2197,13 +2219,8 @@ function capacidadAhorro(){
   const cerrados=mesList.filter(m=>m<mesHoyStr()).slice(-3);
   if(!cerrados.length)return null;
   const vals=cerrados.map(m=>{
-    const movs=allMovs.filter(mv=>mv.mes===m);
-    const ing=movs.filter(mv=>mv.tipo==="Ingreso"&&!mv.esAhorro&&!mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
-    const usoAh=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esAhorro).reduce((a,b)=>a+b.monto,0);
-    const movInt=movs.filter(mv=>mv.tipo==="Ingreso"&&mv.esMovInterno).reduce((a,b)=>a+b.monto,0);
-    const gasLib=movs.filter(mv=>mv.tipo==="Gasto"&&mv.medio==="Cuenta / Billetera"&&!esFijo(mv)&&mv.monto>0).reduce((a,b)=>a+b.monto,0);
     const tf=getFijosParaMes(m).reduce((a,f)=>a+f.monto,0);
-    return ing+usoAh+movInt-tf-gasLib;
+    return getResumenMesCache(m,allMovs,tf).libre;
   });
   return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
@@ -2306,12 +2323,12 @@ function eliminarObjetivo(){
 function renderTCHorizonte(){
   const el=document.getElementById("tc-horizonte");
   if(!el)return;
-  const cuotas=buildCuotas(allMovs).filter(c=>c.fin>=mesSel);
+  const cuotas=getCuotasCache().filter(c=>c.fin>=mesSel);
   if(!cuotas.length){el.innerHTML='<div class="empty" style="padding:16px">Sin cuotas a futuro — tarjeta liberada ✓</div>';return;}
   const porFin={};
   cuotas.forEach(c=>{if(!porFin[c.fin])porFin[c.fin]=[];porFin[c.fin].push(c);});
   const fines=Object.keys(porFin).sort();
-  const cargaActual=cuotas.filter(c=>c.ini<=mesSel).reduce((a,b)=>a+b.montoCuota,0);
+  const cargaActual=cuotas.filter(c=>c.ini<=mesSel).reduce((a,b)=>a+(mesSel===b.fin?b.montoUltimaCuota:b.montoCuota),0);
   el.innerHTML=fines.slice(0,5).map(fin=>{
     const grupo=porFin[fin];
     const monto=grupo.reduce((a,b)=>a+b.montoCuota,0);
